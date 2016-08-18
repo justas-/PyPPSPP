@@ -22,7 +22,58 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="GlobalParams.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="MessagesParser.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Messages\MessageTypes.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Messages\MsgAck.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Messages\MsgCancel.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Messages\MsgChoke.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Messages\MsgData.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Messages\MsgHandshake.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Messages\MsgHave.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Messages\MsgIntegrity.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Messages\MsgRequest.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Messages\MsgUnchoke.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="PeerProtocol.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="PyPPSPP.py" />
+    <Compile Include="Swarm.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="SwarmMember.py">
+      <SubType>Code</SubType>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Messages\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="ReadMe.md" />
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
