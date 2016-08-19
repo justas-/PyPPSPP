@@ -58,6 +58,9 @@
     <Compile Include="Messages\MsgUnchoke.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Messages\__init__.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="PeerProtocol.py">
       <SubType>Code</SubType>
     </Compile>
@@ -66,6 +69,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="SwarmMember.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="__init__.py">
       <SubType>Code</SubType>
     </Compile>
   </ItemGroup>

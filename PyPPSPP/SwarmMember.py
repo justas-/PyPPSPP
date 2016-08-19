@@ -6,14 +6,8 @@ import hashlib
 
 from collections import deque
 
-from Messages.MsgHandshake import MsgHandshake
-from Messages.MsgRequest import MsgRequest
-from Messages.MsgHave import MsgHave
-from Messages.MsgData import MsgData
-from Messages.MsgIntegrity import MsgIntegrity
-from Messages.MsgAck import MsgAck
+from Messages import *
 from Messages.MessageTypes import MsgTypes as MT
-
 from MessagesParser import MessagesParser
 
 class SwarmMember(object):
@@ -45,8 +39,9 @@ class SwarmMember(object):
         self._total_data_tx = 0
         self._total_data_rx = 0
 
-        # Make have map
-        self.set_have = set()
+        # Chunk-maps
+        self.set_have = set()       # What peer has
+        self.set_requested = set()  # What peer requested
 
         # Outbox to stuff all reply messages into one datagram
         self._outbox = deque()
@@ -55,7 +50,7 @@ class SwarmMember(object):
         """Send initial packet to the potential remote peer"""
 
         # Create a handshake message
-        hs = MsgHandshake()
+        hs = MsgHandshake.MsgHandshake()
         hs.swarm = self._swarm.swarm_id
         bm = hs.BuildBinaryMessage()
 
@@ -91,20 +86,23 @@ class SwarmMember(object):
         
         # Handle all messages in the same way as they arrived
         for msg in messages:
-            if isinstance(msg, MsgHandshake):
+            if isinstance(msg, MsgHandshake.MsgHandshake):
                 self.HandleHandshake(msg)
                 continue
-            if isinstance(msg, MsgHave):
+            if isinstance(msg, MsgHave.MsgHave):
                 self.HandleHave(msg)
                 continue
-            if isinstance(msg, MsgData):
+            if isinstance(msg, MsgData.MsgData):
                 self.HandleData(msg)
                 continue
-            if isinstance(msg, MsgIntegrity):
+            if isinstance(msg, MsgIntegrity.MsgIntegrity):
                 self.HandleIntegrity(msg)
                 continue
-            if isinstance(msg, MsgAck):
+            if isinstance(msg, MsgAck.MsgAck):
                 self.HandleAck(msg)
+                continue
+            if isinstance(msg, MsgRequest.MsgRequest):
+                self.HandleRequest(msg)
                 continue
 
         # Account all received data
@@ -166,7 +164,7 @@ class SwarmMember(object):
             self._swarm.SaveVerifiedData(msg_data.start_chunk, msg_data.end_chunk, msg_data.data)
 
             # Send ack to peer
-            msg_ack = MsgAck()
+            msg_ack = MsgAck.MsgAck()
             msg_ack.start_chunk = msg_data.start_chunk
             msg_ack.end_chunk = msg_data.end_chunk
             msg_ack.one_way_delay_sample = 1000
@@ -188,7 +186,7 @@ class SwarmMember(object):
             request.add(x)
 
         # Build a message
-        req = MsgRequest()
+        req = MsgRequest.MsgRequest()
         req.start_chunk = first_chunk
         req.end_chunk = last_chunk
 
@@ -209,6 +207,14 @@ class SwarmMember(object):
     def HandleAck(self, msg_ack):
         """Handle incomming ck message"""
         return
+
+    def HandleRequest(self, msg_request):
+        """Handle request for data that we have"""
+        for x in range(msg_request.start_chunk, msg_request.end_chunk):
+            self.set_requested.add(x)
+
+        # TODO - send first available from the requested list?
+
 #endregion
 
     def ProcessOutbox(self):
@@ -228,7 +234,7 @@ class SwarmMember(object):
         """Close association with the remote member"""
 
         # Build goodbye handshake
-        hs = MsgHandshake()
+        hs = MsgHandshake.MsgHandshake()
         hs_bin = hs.BuildGoodbye()
 
         # Serialize
