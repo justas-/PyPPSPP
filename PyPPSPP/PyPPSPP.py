@@ -33,6 +33,9 @@ try:
 except KeyboardInterrupt:
     pass
 
+# Inform protocol to close
+protocol.CloseProtocol()
+
 # Clean-up
 transport.close()
 loop.close()

@@ -63,4 +63,7 @@ class PeerProtocol(object):
     def connection_lost(self, exc):
         logging.critical("Socket closed: {0}".format(exc))
         loop.stop()
+
+    def CloseProtocol(self):
+        self.swarm.CloseSwarm()
         

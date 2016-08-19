@@ -22,6 +22,7 @@ class Swarm(object):
 
         self._file = open(filename, 'bw')
         self._file.seek(0)
+        self._file_completed = False
 
         # Calculate num chunks and make chunk sets
         self.num_chunks = math.ceil(filesize / GlobalParams.chunk_size)
@@ -69,15 +70,28 @@ class Swarm(object):
         """Called when we receive data from a peer and validate the integrity"""
         # For now we assume 1024 Byte chunks. This is not always the case
         # as remote peer might be operating using other size chunks
-    
-        # TODO: Do we really need end chunk?
+
+        # Do not overwrite completed files. Ignore duplicate chunks
+        if self._file_completed == True:
+            return
+
         self._file.seek(start_chunk * GlobalParams.chunk_size)
         self._file.write(data)
         logging.info("Wrote to file from chunk {0} to chunk {1}".format(start_chunk, end_chunk))
 
-    def DisconnectAll(self):
-        """Send disconnect to all members in the swarm"""
+        # Update present / requested / missing chunks
+        for x in range(start_chunk, end_chunk+1):
+            self.set_have.add(x)
+            self.set_requested.discard(x)
+            self.set_missing.discard(x)
 
+        # Close the file once we are done and reopen read-only
+        if len(self.set_missing) == 0:
+            self._file.close()
+            self._file = open(self.filename, 'br')
+            self._file_completed = True
+            logging.info("No more missing chunks. Reopening file read-only!")
+            
     def RequestChunks(self):
         """Request missing chunks from remote peers"""
         logging.info("Running RequestChunks")
@@ -100,3 +114,13 @@ class Swarm(object):
             return
         else:
             selected_member.RequestChunks(chunks)
+
+    def CloseSwarm(self):
+        """Close swarm nicely"""
+        logging.info("Request to close swarm nicely!")
+        # Send departure handshakes
+        for member in self._members:
+            member.Disconnect()
+
+        # Close FD
+        self._file.close()

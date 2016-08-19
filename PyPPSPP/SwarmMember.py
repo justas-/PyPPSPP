@@ -165,12 +165,6 @@ class SwarmMember(object):
             # Save data to file
             self._swarm.SaveVerifiedData(msg_data.start_chunk, msg_data.end_chunk, msg_data.data)
 
-            # Update present / requested / missing chunks
-            for x in range(msg_data.start_chunk, msg_data.end_chunk+1):
-                self._swarm.set_have.add(x)
-                self._swarm.set_requested.discard(x)
-                self._swarm.set_missing.discard(x)
-
             # Send ack to peer
             msg_ack = MsgAck()
             msg_ack.start_chunk = msg_data.start_chunk
@@ -232,7 +226,17 @@ class SwarmMember(object):
 
     def Disconnect(self):
         """Close association with the remote member"""
-        pass
+
+        # Build goodbye handshake
+        hs = MsgHandshake()
+        hs_bin = hs.BuildGoodbye()
+
+        # Serialize
+        data = bytearray()
+        data[0:] = struct.pack('>I', self.remote_channel)
+        data[4:] = hs_bin
+        
+        self.SendAndAccount(data)
 
     def GetIntegrity(self, data):
         """Calculate the integirty value of given data using remote peers hash"""

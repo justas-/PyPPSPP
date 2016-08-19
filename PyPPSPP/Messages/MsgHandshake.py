@@ -1,4 +1,6 @@
 from GlobalParams import GlobalParams as GB
+from Messages.MessageTypes import MsgTypes
+
 from struct import pack, pack_into, unpack
 from array import array
 
@@ -21,6 +23,17 @@ class MsgHandshake(object):
         # Used during handshake
         self.our_channel = 0
         self.their_channel = 0
+
+        self._is_goodbye = False
+
+    def BuildGoodbye(self):
+        """Build HANDSHAKE indicating that we are leaving"""
+        
+        wb = bytearray()
+        wb[0:] = pack('>cI', bytes([MsgTypes.HANDSHAKE]), 0)
+
+        self._is_goodbye = True
+        return wb
 
     def BuildBinaryMessage(self):
         """Build HANDSHAKE message. Ref [RFC7574] §7"""
@@ -142,7 +155,10 @@ class MsgHandshake(object):
                 return idx + 1
             
     def __str__(self):
-        return str("[HANDSHAKE] LocCh: {0}; RemCh: {1}".format(self.our_channel, self.their_channel))
+        if self._is_goodbye == True:
+            return str("[HANDSHAKE] Goodbye!")
+        else:
+            return str("[HANDSHAKE] LocCh: {0}; RemCh: {1}".format(self.our_channel, self.their_channel))
 
     def __repr__(self):
         return self.__str__()
