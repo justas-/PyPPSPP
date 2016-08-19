@@ -17,6 +17,11 @@ class Swarm(object):
         self._socket = socket
         self._members = []
 
+        # data
+        self.integrity = {}
+        self.unverified_data = {}
+        self.verified_data = {}
+
         # Calculate # chunks and make chunk sets
         self.num_chunks = math.ceil(filesize / GlobalParams.chunk_size)
         

@@ -2,6 +2,7 @@ import logging
 import random
 import sys
 import struct
+import hashlib
 
 from collections import deque
 
@@ -9,7 +10,11 @@ from Messages.MsgHandshake import MsgHandshake
 from Messages.MsgRequest import MsgRequest
 from Messages.MsgHave import MsgHave
 from Messages.MsgData import MsgData
+from Messages.MsgIntegrity import MsgIntegrity
+from Messages.MsgAck import MsgAck
 from Messages.MessageTypes import MsgTypes as MT
+
+from MessagesParser import MessagesParser
 
 class SwarmMember(object):
     """A class used to represent member in the swarm"""
@@ -73,12 +78,12 @@ class SwarmMember(object):
         
     def GotKeepalive(self):
         """Sometimes remote peer might send us keepalive only"""
-        pass
+        return
 
-    def HandleMessages(self, messages):
-        """ Handle messages received from the remote peer"""
+    def ParseData(self, data):
+        """Handle data received from the peer"""
 
-        logging.info("Handling messages:")
+        messages = MessagesParser.ParseData(self, data)
         
         for msg in messages:
             if isinstance(msg, MsgHandshake):
@@ -89,6 +94,12 @@ class SwarmMember(object):
                 continue
             if isinstance(msg, MsgData):
                 self.HandleData(msg)
+                continue
+            if isinstance(msg, MsgIntegrity):
+                self.HandleIntegrity(msg)
+                continue
+            if isinstance(msg, MsgAck):
+                self.HandleAck(msg)
                 continue
 
     def HandleHandshake(self, handshake):
@@ -103,6 +114,7 @@ class SwarmMember(object):
         if self.is_hs_sent == True:
             # This is reply to our HS
             # TODO: for now just care about channel numbers
+            # TODO: Verify that our Python knows how to validate given hash type
             self.remote_channel = handshake.their_channel
             self.hash_type = handshake.merkle_tree_hash_func
             self.is_init = True
@@ -123,8 +135,21 @@ class SwarmMember(object):
         # Inform swarm to consider rerunning chunk selection alg
         self._swarm.MemberHaveMapUpdated()
 
-    def HandleData(self, data):
-        """ """
+    def HandleData(self, msg_data):
+        """Handle the received data"""
+        # Do we have integrity for given range?
+        integrity = None
+        if (msg_data.start_chunk, msg_data.end_chunk) in self._swarm.integrity:
+            integrity = self._swarm.integrity[(msg_data.start_chunk, msg_data.end_chunk)]
+
+        # Calculate the integirty of received message
+        calc_integirty = self.GetIntegrity(msg_data.data)
+        logging.info("Calculated integrity. From: {0} To: {1} Value: {2}"
+                     .format(msg_data.start_chunk, msg_data.end_chunk, calc_integirty))
+
+        # Compare agains value we have
+        if integrity != None and integrity == calc_integirty:
+            self._swarm.verified_data[(msg_data.start_chunk, msg_data.end_chunk)] = msg_data.data
 
     def RequestChunks(self, chunks_set):
         """Request chunks from this member"""
@@ -156,6 +181,36 @@ class SwarmMember(object):
         self.SendAndAccount(data)
         self._swarm.set_requested.union(request)
 
+    def HandleIntegrity(self, msg_integrity):
+        """Handle the incomming integorty message"""
+        self._swarm.integrity[(msg_integrity.start_chunk, msg_integrity.end_chunk)] = msg_integrity.hash_data
+
+    def HandleAck(self, msg_ack):
+        """Handle incomming ck message"""
+        return
+
     def Disconnect(self):
         """Close association with the remote member"""
         pass
+
+    def GetIntegrity(self, data):
+        """Calculate the integirty value of given data using remote peers hash"""
+        if self.hash_type == None:
+            return None
+        elif self.hash_type == 0:
+            # SHA-1
+            return hashlib.sha1(data).digest()
+        elif self.hash_type == 1:
+            # SHA-224
+            return hashlib.sha224(data).digest()
+        elif self.hash_type == 2:
+            # SHA-256
+            return hashlib.sha256(data).digest()
+        elif self.hash_type == 3:
+            # SHA-384
+            return hashlib.sha384(data).digest()
+        elif self.hash_type == 4:
+            # SHA-512
+            return hashlib.sha512(data).digest()
+        else:
+            return None

@@ -24,3 +24,13 @@ class MsgAck(object):
         self.start_chunk = contents[0]
         self.end_chunk = contents[1]
         self.one_way_delay_sample = contents[2]
+
+    def __str__(self):
+        return str("[ACK] Start: {0}; End: {1}; Delay sample: {2};"
+                   .format(
+                       self.start_chunk,
+                       self.end_chunk,
+                       self.one_way_delay_sample))
+
+    def __repr__(self):
+        return self.__str__()

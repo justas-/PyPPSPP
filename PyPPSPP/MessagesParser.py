@@ -7,16 +7,16 @@ from Messages.MsgHandshake import MsgHandshake
 from Messages.MsgHave import MsgHave
 from Messages.MsgData import MsgData
 from Messages.MsgIntegrity import MsgIntegrity
+from Messages.MsgAck import MsgAck
 from Messages.MessageTypes import MsgTypes as MT
 
 class MessagesParser(object):
     """A parser for PPSPP messages. Binary data -> Msg Objects"""
 
-    def ParseData(received_data):
+    def ParseData(peer_scope, received_data):
         """Parse received messages to corresponding message objects"""
         data_rx = len(received_data)
         data_parsed = 0
-        logging.info("Parsing {0}B of received data".format(data_rx))
 
         my_channel = unpack('>I', received_data[0:4])[0]
         data_parsed = data_parsed + 4
@@ -48,7 +48,7 @@ class MessagesParser(object):
             elif type == MT.ACK:
                 pass
             elif type == MT.INTEGRITY:
-                message = MsgIntegrity()
+                message = MsgIntegrity(peer_scope.hash_type)
                 data_read = message.ParseReceivedData(received_data[data_parsed:])
                 data_parsed = data_parsed + data_read
                 messages.append(message)
@@ -63,6 +63,4 @@ class MessagesParser(object):
 
             logging.info("Received: {0}".format(message))
 
-        logging.info("Parsed {0}B. My channel: {1}; Received {2} message(s)."
-                     .format(data_parsed, my_channel, len(messages)))
-        return (my_channel, messages)
+        return messages

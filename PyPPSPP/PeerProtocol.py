@@ -1,9 +1,11 @@
 import logging
 import asyncio
 import binascii
+import struct
 
 import Swarm
-import MessagesParser
+import SwarmMember
+
 
 class PeerProtocol(object):
     """A class for use with Python asyncio library"""
@@ -35,22 +37,25 @@ class PeerProtocol(object):
         logging.info("Datagram received ({0}). From: {1}; Len: {2}B"
                      .format(self._num_msg_rx, addr, len(data)))
 
-        # Parse received data
-        (channel, messages) = MessagesParser.MessagesParser.ParseData(data)
+        # Get the channel number
+        my_channel = struct.unpack('>I', data[0:4])[0]
 
-        if channel == 0:
+        if my_channel == 0:
             # This is new peer making connection to us
-            new_peer = self.swarm.AddMember(addr[0], addr[1])
-            new_peer.HandleMessages(messages)
+            new_member = self.swarm.AddMember(addr[0], addr[1])
+            new_member.ParseData(data)
         else:
             # Tr to find requested channel
-            member = self.swarm.GetMemberByChannel(channel)
+            member = self.swarm.GetMemberByChannel(my_channel)
 
             if member != None:
-                member.HandleMessages(messages)
+                if len(data) == 4:
+                    # This is keepalive
+                    member.GotKeepalive()
+                else:
+                    member.ParseData(data)
             else:
-                logging.warning("Received data to non-existant channel: {0}"
-                                .format(channel))
+                logging.warning("Received data to non-existant channel: {0}".format(my_channel))
 
     def error_received(self, exc):
         logging.warning("Error received: {0}".format(exc))
