@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import os
 
 from PeerProtocol import PeerProtocol
 
@@ -17,6 +18,15 @@ listen = loop.create_datagram_endpoint(
 
 # Run until completed
 transport, protocol = loop.run_until_complete(listen)
+
+# Schedule wakeups to catch Ctrl+C in Win32
+# This should be fixed in Python 3.5 
+# Ref: http://stackoverflow.com/questions/24774980/why-cant-i-catch-sigint-when-asyncio-event-loop-is-running
+if os.name == 'nt':
+    def wakeup():
+        # Call again later
+        loop.call_later(0.5, wakeup)
+    loop.call_later(0.5, wakeup)
 
 try:
     loop.run_forever()

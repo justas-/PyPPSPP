@@ -48,6 +48,9 @@ class SwarmMember(object):
         # Make have map
         self.set_have = set()
 
+        # Outbox to stuff all reply messages into one datagram
+        self._outbox = deque()
+
     def SendHandshake(self):
         """Send initial packet to the potential remote peer"""
 
@@ -83,8 +86,10 @@ class SwarmMember(object):
     def ParseData(self, data):
         """Handle data received from the peer"""
 
+        # Parse all messages into queue
         messages = MessagesParser.ParseData(self, data)
         
+        # Handle all messages in the same way as they arrived
         for msg in messages:
             if isinstance(msg, MsgHandshake):
                 self.HandleHandshake(msg)
@@ -102,6 +107,13 @@ class SwarmMember(object):
                 self.HandleAck(msg)
                 continue
 
+        # Account all received data
+        self._total_data_rx = self._total_data_rx + len(data)
+
+        # We might have generated replies while processing
+        self.ProcessOutbox()
+
+#region Messages Handling
     def HandleHandshake(self, handshake):
         """Handle the handshake received from remote peer"""
         
@@ -138,6 +150,7 @@ class SwarmMember(object):
     def HandleData(self, msg_data):
         """Handle the received data"""
         # Do we have integrity for given range?
+        # We should keep integritys in scope of the peer as hash funtion can be different between the peers
         integrity = None
         if (msg_data.start_chunk, msg_data.end_chunk) in self._swarm.integrity:
             integrity = self._swarm.integrity[(msg_data.start_chunk, msg_data.end_chunk)]
@@ -149,7 +162,21 @@ class SwarmMember(object):
 
         # Compare agains value we have
         if integrity != None and integrity == calc_integirty:
-            self._swarm.verified_data[(msg_data.start_chunk, msg_data.end_chunk)] = msg_data.data
+            # Save data to file
+            self._swarm.SaveVerifiedData(msg_data.start_chunk, msg_data.end_chunk, msg_data.data)
+
+            # Update present / requested / missing chunks
+            for x in range(msg_data.start_chunk, msg_data.end_chunk+1):
+                self._swarm.set_have.add(x)
+                self._swarm.set_requested.discard(x)
+                self._swarm.set_missing.discard(x)
+
+            # Send ack to peer
+            msg_ack = MsgAck()
+            msg_ack.start_chunk = msg_data.start_chunk
+            msg_ack.end_chunk = msg_data.end_chunk
+            msg_ack.one_way_delay_sample = 1000
+            self._outbox.append(msg_ack)
 
     def RequestChunks(self, chunks_set):
         """Request chunks from this member"""
@@ -188,6 +215,20 @@ class SwarmMember(object):
     def HandleAck(self, msg_ack):
         """Handle incomming ck message"""
         return
+#endregion
+
+    def ProcessOutbox(self):
+        """Binarify and send all messages in the outbox"""
+        # This method should do any re-arrangement if required
+
+        data = bytearray()
+        data[0:] = struct.pack('>I', self.remote_channel)
+
+        for msg in self._outbox:
+            msg_bin = msg.BuildBinaryMessage()
+            data[len(data):] = msg_bin
+            
+        self.SendAndAccount(data)
 
     def Disconnect(self):
         """Close association with the remote member"""

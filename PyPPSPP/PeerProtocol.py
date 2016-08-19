@@ -23,7 +23,7 @@ class PeerProtocol(object):
         # TODO: Now only one swarm is supported
         # TODO: Now swarm ID is hardcoded
         swarm_id = binascii.unhexlify("82d3614b17dcac7624e58b2bee9bca1580a87b75")
-        swarm_filename = "HelloWorld.txt"
+        swarm_filename = "C:\PyPPSPP\HelloWorld.txt"
         swarm_file_size = 33
         self.swarm = Swarm.Swarm(self.transport, swarm_id, swarm_filename, swarm_file_size)
 

@@ -19,10 +19,11 @@ class Swarm(object):
 
         # data
         self.integrity = {}
-        self.unverified_data = {}
-        self.verified_data = {}
 
-        # Calculate # chunks and make chunk sets
+        self._file = open(filename, 'bw')
+        self._file.seek(0)
+
+        # Calculate num chunks and make chunk sets
         self.num_chunks = math.ceil(filesize / GlobalParams.chunk_size)
         
         self.set_have = set()
@@ -64,9 +65,15 @@ class Swarm(object):
         loop.call_soon(self.RequestChunks)
         logging.info("Scheduled Request Chunks running soon")
 
-    def DataDownloaded(self, start_chunk, end_chunk, data):
-        """Called when we receive data from a peer"""
-        pass
+    def SaveVerifiedData(self, start_chunk, end_chunk, data):
+        """Called when we receive data from a peer and validate the integrity"""
+        # For now we assume 1024 Byte chunks. This is not always the case
+        # as remote peer might be operating using other size chunks
+    
+        # TODO: Do we really need end chunk?
+        self._file.seek(start_chunk * GlobalParams.chunk_size)
+        self._file.write(data)
+        logging.info("Wrote to file from chunk {0} to chunk {1}".format(start_chunk, end_chunk))
 
     def DisconnectAll(self):
         """Send disconnect to all members in the swarm"""
