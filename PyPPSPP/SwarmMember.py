@@ -196,7 +196,7 @@ class SwarmMember(object):
         
         # Get first range of continuous chunks
         x = first_chunk + 1
-        while (x in chunks_set) and (first_chunk + 10 > x):
+        while (x in chunks_set) and (first_chunk + 1000 > x):
             x = x + 1
         last_chunk = x - 1
 

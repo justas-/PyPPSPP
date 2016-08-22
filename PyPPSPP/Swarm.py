@@ -33,6 +33,8 @@ class Swarm(object):
         self.set_missing = set()
         self.set_requested = set()
 
+        self._last_num_missing = 0
+
         for x in range(self.num_chunks):
             self.set_missing.add(x)
 
@@ -71,7 +73,19 @@ class Swarm(object):
 
     def ChunkRequest(self):
         """Implements Chunks selection/request algorith"""
-        logging.info("Running chunks selection algorithm")
+        
+        num_missing = len(self.set_missing)
+        logging.info("Running chunks selection algorithm. Num missing: {0}".format(num_missing))
+
+        if num_missing == 0:
+            logging.info("All chunks onboard. Not rescheduling selection alg")
+            return
+
+        # If we are twice at the same fulfillment level - start re-requesting chunks
+        if num_missing == self._last_num_missing:
+            for member in self._members:
+                member.set_requested.clear()
+            self.set_requested.clear()
 
         # TODO: Implement smart algorithm here
         for member in self._members:
@@ -79,6 +93,8 @@ class Swarm(object):
             if len(set_i_need) > 0:
                 member.RequestChunks(set_i_need)
                 break
+
+        self._last_num_missing = len(self.set_requested)
 
         # Schedule a call to select chunks again
         asyncio.get_event_loop().call_later(0.5, self.ChunkRequest)

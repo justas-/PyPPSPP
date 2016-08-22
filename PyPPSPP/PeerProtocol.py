@@ -31,6 +31,10 @@ class PeerProtocol(object):
         swarm_filename = r"C:\PyPPSPP\test10MB.bin"
         swarm_file_size = 10485788
 
+        #swarm_id = binascii.unhexlify("87323eba55d370afcbfdf40ee4fd2b248bb98afb")
+        #swarm_filename = r"C:\PyPPSPP\test1MB.bin"
+        #swarm_file_size = 1048536
+
         self.swarm = Swarm.Swarm(self.transport, swarm_id, swarm_filename, swarm_file_size)
 
         # TODO: Now we add the bootstrap member
