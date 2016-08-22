@@ -3,11 +3,7 @@ import logging
 from struct import unpack
 from collections import deque
 
-from Messages.MsgHandshake import MsgHandshake
-from Messages.MsgHave import MsgHave
-from Messages.MsgData import MsgData
-from Messages.MsgIntegrity import MsgIntegrity
-from Messages.MsgAck import MsgAck
+from Messages import *
 from Messages.MessageTypes import MsgTypes as MT
 
 class MessagesParser(object):
@@ -34,27 +30,35 @@ class MessagesParser(object):
             if type == MT.HANDSHAKE:
                 their_channel = unpack('>I', received_data[data_parsed:data_parsed+4])[0]
                 data_parsed = data_parsed + 4
-                message = MsgHandshake()
+                message = MsgHandshake.MsgHandshake()
                 data_read = message.ParseReceivedData(received_data[data_parsed:])
                 message.our_channel = my_channel
                 message.their_channel = their_channel
                 data_parsed = data_parsed + data_read
                 messages.append(message)
             elif type == MT.DATA:
-                message = MsgData()
+                message = MsgData.MsgData(peer_scope.chunk_size, peer_scope.chunk_addressing_method)
                 data_read = message.ParseReceivedData(received_data[data_parsed:])
                 data_parsed = data_parsed + data_read
                 messages.append(message)
             elif type == MT.ACK:
-                pass
+                message = MsgAck.MsgAck()
+                message.ParseReceivedData(received_data[data_parsed:])
+                data_parsed = data_parsed + 16
+                messages.append(message)
             elif type == MT.INTEGRITY:
-                message = MsgIntegrity(peer_scope.hash_type)
+                message = MsgIntegrity.MsgIntegrity(peer_scope.hash_type)
                 data_read = message.ParseReceivedData(received_data[data_parsed:])
                 data_parsed = data_parsed + data_read
                 messages.append(message)
             elif type == MT.HAVE:
-                message = MsgHave()
+                message = MsgHave.MsgHave()
                 message.ParseReceivedData(received_data[data_parsed:data_parsed+8])
+                data_parsed = data_parsed + 8
+                messages.append(message)
+            elif type == MT.REQUEST:
+                message = MsgRequest.MsgRequest()
+                message.ParseReceivedData(received_data[data_parsed:])
                 data_parsed = data_parsed + 8
                 messages.append(message)
             

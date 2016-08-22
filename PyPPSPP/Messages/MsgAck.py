@@ -1,4 +1,4 @@
-from struct import pack_into, unpack
+from struct import pack, unpack
 from Messages.MessageTypes import MsgTypes
 
 class MsgAck(object):
@@ -11,13 +11,12 @@ class MsgAck(object):
 
     def BuildBinaryMessage(self):
         """Build bytearray of the message"""
-        wb = bytearray(136)
-        pack_into('c', wb, 0, bytes([MsgTypes.ACK]))
-        pack_into('>IIQ', wb, 8, 
-                  self.start_chunk, 
-                  self.end_chunk, 
-                  self.one_way_delay_sample)
-
+        wb = bytearray()
+        wb[0:] = pack('>cIIQ', 
+                      bytes([MsgTypes.ACK]), 
+                      self.start_chunk, 
+                      self.end_chunk, 
+                      self.one_way_delay_sample)
         return wb
 
     def ParseReceivedData(self, data):

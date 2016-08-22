@@ -3,6 +3,8 @@ import random
 import sys
 import struct
 import hashlib
+import binascii
+import time
 
 from collections import deque
 
@@ -24,7 +26,9 @@ class SwarmMember(object):
         self.remote_channel = 0
 
         # Chunk parameters and hash parameters
-        self.chunk_size = 4 # 4 Bytes / 32 bits
+        # Will be overwritten by Handshake msg
+        self.chunk_addressing_method = None
+        self.chunk_size = None
         self.hash_type = None
 
         # Did we choke or are we choked
@@ -42,6 +46,8 @@ class SwarmMember(object):
         # Chunk-maps
         self.set_have = set()       # What peer has
         self.set_requested = set()  # What peer requested
+
+        self.unverified_data = []   # Keep all unverified messages
 
         # Outbox to stuff all reply messages into one datagram
         self._outbox = deque()
@@ -71,11 +77,13 @@ class SwarmMember(object):
         self.is_hs_sent = True
 
     def SendAndAccount(self, binary_data):
+        logging.debug("!! Sending BIN data: {0}".format(binascii.hexlify(binary_data)))
         self._swarm.SendData(self.ip_address, self.udp_port, binary_data)
         self._total_data_tx = self._total_data_tx + len(binary_data)
         
     def GotKeepalive(self):
         """Sometimes remote peer might send us keepalive only"""
+        logging.info("Got KEEPALIVE from {0}:{1}".format(self.ip_address, self.udp_port))
         return
 
     def ParseData(self, data):
@@ -127,6 +135,8 @@ class SwarmMember(object):
             # TODO: Verify that our Python knows how to validate given hash type
             self.remote_channel = handshake.their_channel
             self.hash_type = handshake.merkle_tree_hash_func
+            self.chunk_addressing_method = handshake.chunk_addressing_method
+            self.chunk_size = handshake.chunk_size
             self.is_init = True
 
         elif self.is_hs_sent == False:
@@ -134,16 +144,11 @@ class SwarmMember(object):
             # TODO: Make this work by replying with HS
             return
 
-    def HandleHave(self, have):
+    def HandleHave(self, msg_have):
         """Update the local have map"""
-
-        logging.info("Handling Have")
-
-        for i in range(have.start_chunk, have.end_chunk+1):
+        logging.info("Handling Have: {0}".format(msg_have))
+        for i in range(msg_have.start_chunk, msg_have.end_chunk+1):
             self.set_have.add(i)
-
-        # Inform swarm to consider rerunning chunk selection alg
-        self._swarm.MemberHaveMapUpdated()
 
     def HandleData(self, msg_data):
         """Handle the received data"""
@@ -159,16 +164,31 @@ class SwarmMember(object):
                      .format(msg_data.start_chunk, msg_data.end_chunk, calc_integirty))
 
         # Compare agains value we have
-        if integrity != None and integrity == calc_integirty:
-            # Save data to file
-            self._swarm.SaveVerifiedData(msg_data.start_chunk, msg_data.end_chunk, msg_data.data)
+        #if integrity != None and integrity == calc_integirty:
+        # Save data to file
+        self._swarm.SaveVerifiedData(msg_data.start_chunk, msg_data.end_chunk, msg_data.data)
 
-            # Send ack to peer
-            msg_ack = MsgAck.MsgAck()
-            msg_ack.start_chunk = msg_data.start_chunk
-            msg_ack.end_chunk = msg_data.end_chunk
-            msg_ack.one_way_delay_sample = 1000
-            self._outbox.append(msg_ack)
+        # Send ack to peer
+        msg_ack = MsgAck.MsgAck()
+        msg_ack.start_chunk = msg_data.start_chunk
+        msg_ack.end_chunk = msg_data.end_chunk
+        
+        # As described in [RFC7574] 8.7 && [RFC6817]
+        delay = int((time.time() * 1000000) - msg_data.timestamp)
+        msg_ack.one_way_delay_sample = delay
+
+        self._outbox.append(msg_ack)
+
+        #elif integrity == None:
+        #    # Add to a list of unverified data
+        #    self.unverified_data.append(msg_data)
+        #
+        #    # Acknowledge reception
+        #    msg_ack = MsgAck.MsgAck()
+        #    msg_ack.start_chunk = msg_data.start_chunk
+        #    msg_ack.end_chunk = msg_data.end_chunk
+        #    msg_ack.one_way_delay_sample = 1000
+        #    self._outbox.append(msg_ack)
 
     def RequestChunks(self, chunks_set):
         """Request chunks from this member"""
@@ -176,7 +196,7 @@ class SwarmMember(object):
         
         # Get first range of continuous chunks
         x = first_chunk + 1
-        while x in chunks_set:
+        while (x in chunks_set) and (first_chunk + 10 > x):
             x = x + 1
         last_chunk = x - 1
 
@@ -195,10 +215,10 @@ class SwarmMember(object):
         data[4:] = bytes([MT.REQUEST])
         data[5:] = req.BuildBinaryMessage()
 
-        logging.info("Sending: {0}".format(req))
+        logging.info("Sending: {0} Binary: {1}".format(req, data))
 
         self.SendAndAccount(data)
-        self._swarm.set_requested.union(request)
+        self._swarm.set_requested = self._swarm.set_requested.union(request)
 
     def HandleIntegrity(self, msg_integrity):
         """Handle the incomming integorty message"""
@@ -212,22 +232,26 @@ class SwarmMember(object):
         """Handle request for data that we have"""
         for x in range(msg_request.start_chunk, msg_request.end_chunk):
             self.set_requested.add(x)
-
-        # TODO - send first available from the requested list?
-
 #endregion
 
     def ProcessOutbox(self):
         """Binarify and send all messages in the outbox"""
         # This method should do any re-arrangement if required
 
+        # If outbox is empty not much to do
+        if len(self._outbox) == 0:
+            return
+
         data = bytearray()
         data[0:] = struct.pack('>I', self.remote_channel)
 
         for msg in self._outbox:
             msg_bin = msg.BuildBinaryMessage()
+            logging.info("Outbox: {0}".format(msg))
             data[len(data):] = msg_bin
             
+        self._outbox.clear()
+
         self.SendAndAccount(data)
 
     def Disconnect(self):
@@ -242,6 +266,7 @@ class SwarmMember(object):
         data[0:] = struct.pack('>I', self.remote_channel)
         data[4:] = hs_bin
         
+        logging.info("Sending: {0}".format(hs))
         self.SendAndAccount(data)
 
     def GetIntegrity(self, data):

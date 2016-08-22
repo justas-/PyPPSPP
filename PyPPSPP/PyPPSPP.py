@@ -5,7 +5,7 @@ import os
 from PeerProtocol import PeerProtocol
 
 # Configure logger
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
 logging.info ("PyPPSPP starting")
 
 # Start minimalistic event loop

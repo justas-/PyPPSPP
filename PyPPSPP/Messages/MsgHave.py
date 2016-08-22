@@ -23,7 +23,7 @@ class MsgHave(object):
         self.end_chunk = contents[1]
 
     def __str__(self):
-        return str("[HAVE] Start: {0}; End: {0}".format(self.start_chunk, self.end_chunk))
+        return str("[HAVE] Start: {0}; End: {1}".format(self.start_chunk, self.end_chunk))
 
     def __rept(self):
         return self__str__()

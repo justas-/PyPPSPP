@@ -22,9 +22,15 @@ class PeerProtocol(object):
         # We have connected socket. Start creating a swarm
         # TODO: Now only one swarm is supported
         # TODO: Now swarm ID is hardcoded
-        swarm_id = binascii.unhexlify("82d3614b17dcac7624e58b2bee9bca1580a87b75")
-        swarm_filename = "C:\PyPPSPP\HelloWorld.txt"
-        swarm_file_size = 33
+        
+        #swarm_id = binascii.unhexlify("82d3614b17dcac7624e58b2bee9bca1580a87b75")
+        #swarm_filename = "C:\PyPPSPP\HelloWorld.txt"
+        #swarm_file_size = 33
+
+        swarm_id = binascii.unhexlify("87a5e6618b2af6f92854eb83e2664d09af7db138")
+        swarm_filename = r"C:\PyPPSPP\test10MB.bin"
+        swarm_file_size = 10485788
+
         self.swarm = Swarm.Swarm(self.transport, swarm_id, swarm_filename, swarm_file_size)
 
         # TODO: Now we add the bootstrap member
@@ -34,7 +40,7 @@ class PeerProtocol(object):
     def datagram_received(self, data, addr):
         # Called on incomming datagram
         self._num_msg_rx = self._num_msg_rx + 1
-        logging.info("Datagram received ({0}). From: {1}; Len: {2}B"
+        logging.debug("Datagram received ({0}). From: {1}; Len: {2}B"
                      .format(self._num_msg_rx, addr, len(data)))
 
         # Get the channel number
