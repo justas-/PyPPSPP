@@ -101,12 +101,12 @@ class Swarm(object):
         """Implements chunks sending alg"""
 
         for member in self._members:
-            # Check if member needs anything
-            num_requested = len(member.set_requested)
-            if num_requested == 0:
+            # Intersect my chunks with requested chunks
+            set_required_and_present = self.set_have & member.set_requested
+            if len(set_required_and_present) == 0:
                 continue
             else:
-                member.SendChunks()
+                member.SendChunks(set_required_and_present)
 
         self._chunk_offer_handle = asyncio.get_event_loop().call_later(0.5, self.ChunkOffer)
 

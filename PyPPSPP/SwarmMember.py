@@ -230,14 +230,14 @@ class SwarmMember(object):
         #    msg_ack.one_way_delay_sample = 1000
         #    self._outbox.append(msg_ack)
 
-    def SendChunks(self):
+    def SendChunks(self, set_to_send):
         """Send chunks to member"""
         MAX_BATCH_SEND = 50
 
         for x in range(0, MAX_SEND_BATCH):
-            first_requested = min(member.RequestChunks)
+            first_requested = min(set_to_send)
             self._swarm._file.seek(first_requested * GlobalParams.chunk_size)
-            data = self._file.readable(GlobalParams.chunk_size)
+            data = self._file.read(GlobalParams.chunk_size)
 
             md = MsgData.MsgData()
             md.start_chunk = first_requested
@@ -251,6 +251,11 @@ class SwarmMember(object):
 
             logging.info("Sending {0}".format(md))
             SendAndAccount(mdata_bin)
+
+            # Stop sending if nothing more to send
+            set_to_send.discard(first_requested)
+            if len(set_to_send) == 0:
+                return
 
     def RequestChunks(self, chunks_set):
         """Request chunks from this member"""
