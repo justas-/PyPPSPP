@@ -239,7 +239,7 @@ class SwarmMember(object):
             self._swarm._file.seek(first_requested * GlobalParams.chunk_size)
             data = self._swarm._file.read(GlobalParams.chunk_size)
 
-            md = MsgData.MsgData()
+            md = MsgData.MsgData(self.chunk_size, self.chunk_addressing_method)
             md.start_chunk = first_requested
             md.end_chunk = first_requested
             md.data = data
