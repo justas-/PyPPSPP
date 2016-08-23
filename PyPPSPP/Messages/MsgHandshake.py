@@ -4,6 +4,8 @@ from Messages.MessageTypes import MsgTypes
 from struct import pack, pack_into, unpack
 from array import array
 
+import logging
+
 class MsgHandshake(object):
     """A class representing PPSPP handshake message"""
 
@@ -100,7 +102,6 @@ class MsgHandshake(object):
 
     def ParseReceivedData(self, data):
         """Parse received data until all HANDSHAKE message is parsed"""
-        print("Parsing data: {0}".format(data))
         
         idx = 0
         finish_parsing = False

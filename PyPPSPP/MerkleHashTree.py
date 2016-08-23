@@ -14,6 +14,12 @@ class MerkleHashTree(object):
 
         self._file_handle = open(file_name, 'rb')
         self._file_len = os.stat(file_name).st_size
+
+        # This is empty file, no way to calk Merkle Hash
+        if self._file_len == 0:
+            self.root_hash = '\x00'
+            self._file_handle.close()
+            return
         
         # Number of hashes from the file
         self._tree_populated_width = math.ceil(self._file_len / chunk_len)

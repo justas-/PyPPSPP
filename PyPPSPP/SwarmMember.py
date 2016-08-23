@@ -234,10 +234,10 @@ class SwarmMember(object):
         """Send chunks to member"""
         MAX_BATCH_SEND = 50
 
-        for x in range(0, MAX_SEND_BATCH):
+        for x in range(0, MAX_BATCH_SEND):
             first_requested = min(set_to_send)
             self._swarm._file.seek(first_requested * GlobalParams.chunk_size)
-            data = self._file.read(GlobalParams.chunk_size)
+            data = self._swarm._file.read(GlobalParams.chunk_size)
 
             md = MsgData.MsgData()
             md.start_chunk = first_requested
