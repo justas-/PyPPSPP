@@ -100,7 +100,8 @@ class MsgHandshake(object):
 
     def ParseReceivedData(self, data):
         """Parse received data until all HANDSHAKE message is parsed"""
-
+        print("Parsing data: {0}".format(data))
+        
         idx = 0
         finish_parsing = False
 
@@ -110,33 +111,39 @@ class MsgHandshake(object):
             if next_tag == 0:
                 idx = idx + 1
                 self.version = data[idx]
+                logging.debug("Parsed version: {0}".format(self.version))
                 idx = idx + 1
             elif next_tag == 1:
                 idx = idx + 1
                 self.min_version = data[idx]
+                logging.debug("Parsed min version: {0}".format(self.min_version))
                 idx = idx + 1
             elif next_tag == 2:
                 idx = idx + 1
                 swarm_len = unpack('>H', data[idx:idx+2])[0]
                 idx = idx + 2
                 self.swarm = data[idx:idx+swarm_len]
+                logging.debug("Parsed swid_len: {0} Swarm id: {1}".format(swarm_len, self.swarm))
                 idx = idx + swarm_len
-                idx = idx + 1
             elif next_tag == 3:
                 idx = idx + 1
                 self.content_identity_protection = data[idx]
+                logging.debug("Parsed cip: {0}".format(self.content_identity_protection))
                 idx = idx + 1
             elif next_tag == 4:
                 idx = idx + 1
                 self.merkle_tree_hash_func = data[idx]
+                logging.debug("Parsed mhf: {0}".format(self.merkle_tree_hash_func))
                 idx = idx + 1
             elif next_tag == 5:
                 idx = idx + 1
                 self.live_signature_alg = data[idx]
+                logging.debug("Parsed lsa: {0}".format(self.live_signature_alg))
                 idx = idx + 1
             elif next_tag == 6:
                 idx = idx + 1
                 self.chunk_addressing_method = data[idx]
+                logging.debug("Parsed cam: {0}".format(self.chunk_addressing_method))
                 idx = idx + 1
             elif next_tag == 7:
                 # TODO implement
@@ -146,12 +153,15 @@ class MsgHandshake(object):
                 self.supported_messages_len = data[idx]
                 idx = idx + 1
                 self.supported_messages = data[idx:idx+self.supported_messages_len]
-                idx = idx + 1
+                logging.debug("Parsed sm: {0} {1}".format(self.supported_messages_len, self.supported_messages))
+                idx = idx + self.supported_messages_len
             elif next_tag == 9:
                 idx = idx + 1
                 self.chunk_size = unpack('>I', data[idx:idx+4])[0]
-                idx = idx + 1
+                logging.debug("Parsed cz: {0}".format(self.chunk_size))
+                idx = idx + 4
             elif next_tag == 255:
+                logging.debug("Parsed: EOM")
                 return idx + 1
             
     def __str__(self):
