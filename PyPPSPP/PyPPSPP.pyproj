@@ -25,6 +25,9 @@
     <Compile Include="GlobalParams.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="MerkleHashTree.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="MessagesParser.py">
       <SubType>Code</SubType>
     </Compile>

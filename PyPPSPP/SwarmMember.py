@@ -154,14 +154,16 @@ class SwarmMember(object):
         """Handle the received data"""
         # Do we have integrity for given range?
         # We should keep integritys in scope of the peer as hash funtion can be different between the peers
-        integrity = None
-        if (msg_data.start_chunk, msg_data.end_chunk) in self._swarm.integrity:
-            integrity = self._swarm.integrity[(msg_data.start_chunk, msg_data.end_chunk)]
+        
+        # Uncomment during proper integrity implementation
+        #integrity = None
+        #if (msg_data.start_chunk, msg_data.end_chunk) in self._swarm.integrity:
+        #    integrity = self._swarm.integrity[(msg_data.start_chunk, msg_data.end_chunk)]
 
         # Calculate the integirty of received message
-        calc_integirty = self.GetIntegrity(msg_data.data)
-        logging.info("Calculated integrity. From: {0} To: {1} Value: {2}"
-                     .format(msg_data.start_chunk, msg_data.end_chunk, calc_integirty))
+        #calc_integirty = self.GetIntegrity(msg_data.data)
+        #logging.info("Calculated integrity. From: {0} To: {1} Value: {2}"
+        #             .format(msg_data.start_chunk, msg_data.end_chunk, calc_integirty))
 
         # Compare agains value we have
         #if integrity != None and integrity == calc_integirty:
@@ -170,8 +172,9 @@ class SwarmMember(object):
 
         # Send ack to peer
         msg_ack = MsgAck.MsgAck()
-        msg_ack.start_chunk = msg_data.start_chunk
-        msg_ack.end_chunk = msg_data.end_chunk
+        (min_ch, max_ch) = self._swarm.GetAckRange(msg_data.start_chunk, msg_data.end_chunk)
+        msg_ack.start_chunk = min_ch
+        msg_ack.end_chunk = max_ch
         
         # As described in [RFC7574] 8.7 && [RFC6817]
         delay = int((time.time() * 1000000) - msg_data.timestamp)
@@ -215,7 +218,7 @@ class SwarmMember(object):
         data[4:] = bytes([MT.REQUEST])
         data[5:] = req.BuildBinaryMessage()
 
-        logging.info("Sending: {0} Binary: {1}".format(req, data))
+        logging.info("Sending: {0}".format(req))
 
         self.SendAndAccount(data)
         self._swarm.set_requested = self._swarm.set_requested.union(request)

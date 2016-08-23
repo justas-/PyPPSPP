@@ -2,9 +2,12 @@ import logging
 import math
 import asyncio
 import datetime
+import os
+import hashlib
 
 from SwarmMember import SwarmMember
 from GlobalParams import GlobalParams
+from MerkleHashTree import MerkleHashTree
 
 class Swarm(object):
     """A class used to represent a swarm in PPSPP"""
@@ -19,31 +22,30 @@ class Swarm(object):
         self._members = []
 
         # data
-        self.integrity = {}
-
-        # TODO: Enable loading file. for now we recreate each time
-        self._file = open(filename, 'bw')
-        self._file.seek(0)
-        self._file_completed = False
-
-        # Calculate num chunks and make chunk sets
+        self.integrity = {} # Not used for now
         self.num_chunks = math.ceil(filesize / GlobalParams.chunk_size)
-        
+        self._mht = None
+        self._file = None
+
         self.set_have = set()
         self.set_missing = set()
         self.set_requested = set()
 
+        self._have_ranges = [] # List of ranges of chunks we have verified
         self._last_num_missing = 0
-
-        for x in range(self.num_chunks):
-            self.set_missing.add(x)
-
+        
+        if (os.path.isfile(self.filename)):
+            self._mht = MerkleHashTree('sha1', self.filename, GlobalParams.chunk_size)
+            if swarm_id == self._mht.root_hash:
+                self.InitValidFile()
+            else:
+                self.InitNewFile()
+        else:
+            self.InitNewFile()
+        
         # Save timestamp when we start operating for stats
         self._ts_start = datetime.datetime.now()
         self._ts_end = None
-
-        # Schedule a call to chunk selection algorithm
-        self._chunk_selction_handle = asyncio.get_event_loop().call_later(0.5, self.ChunkRequest)
 
         logging.info("Created Swarm with ID= {0}. Num chunks: {1}"
                      .format(self.swarm_id, self.num_chunks))
@@ -71,6 +73,24 @@ class Swarm(object):
         # No member found
         return None
 
+    def GetAckRange(self, start_chunk, end_chunk):
+        """Ref [RFC7574] §4.3.2 ACK message containing
+           the chunk specification of its biggest interval
+           covering the chunk"""
+
+        min_chunk = start_chunk - 1
+        max_chunk = end_chunk + 1
+
+        while min_chunk >= 0 and min_chunk in self.set_have:
+            min_chunk = min_chunk - 1
+        min_chunk = min_chunk + 1
+
+        while max_chunk <= self.num_chunks and max_chunk in self.set_have:
+            max_chunk = max_chunk + 1
+        max_chunk = max_chunk - 1
+
+        return (min_chunk, max_chunk)
+
     def ChunkRequest(self):
         """Implements Chunks selection/request algorith"""
         
@@ -94,10 +114,43 @@ class Swarm(object):
                 member.RequestChunks(set_i_need)
                 break
 
+        # Number of chunks missing at the end of chunk selection alg run
         self._last_num_missing = len(self.set_requested)
 
         # Schedule a call to select chunks again
         asyncio.get_event_loop().call_later(0.5, self.ChunkRequest)
+
+    def BuildHaveRanges(self):
+        """Populate have ranges list"""
+        self._have_ranges.clear()
+
+        x_min = 0
+        x_max = 0
+        in_range = False
+
+        while x in range(0, self.num_chunks):
+            if x in self.set_have:
+                if in_range == False:
+                    # Start of new range of chunks we have
+                    x_min = x
+                    in_range = True
+                    continue
+                else:
+                    # We are in range and we have this chunk
+                    x_max = x
+                    continue
+            else:
+                if in_range == False:
+                    # We are not in range and don't have this chunk
+                    continue
+                else:
+                    # We are in range and don't have this chunk
+                    # We are no longer in range of chunks we have
+                    in_range = False
+
+                    # Add to a range of chunks we have
+                    self._have_ranges.append((x_min, x_max)) 
+                    continue
 
     def SaveVerifiedData(self, start_chunk, end_chunk, data):
         """Called when we receive data from a peer and validate the integrity"""
@@ -134,6 +187,33 @@ class Swarm(object):
             self._file_completed = True
             
             logging.info("No more missing chunks. Reopening file read-only!")
+
+    def InitNewFile(self):
+        """There is no file, or file is not full"""
+        self._file = open(self.filename, 'bw')
+        self._file_completed = False
+
+        for x in range(self.num_chunks):
+            self.set_missing.add(x)
+
+        # Schedule a call to chunk selection algorithm
+        self._chunk_selction_handle = asyncio.get_event_loop().call_later(0.5, self.ChunkRequest)
+
+        logging.info("Created empty file and started chunk selection")
+
+    def InitValidFile(self):
+        """We have the file and it passes validation"""
+        self._file = open(self.filename, 'br')
+        self._file_completed = True
+
+        # Create set of pieces we have
+        for x in range(self.num_chunks):
+            self.set_have.add(x)
+
+        # Inform that we have all pieces
+        self._have_ranges.append((0, self.num_chunks))
+
+        logging.info("File integrity valid. Seeding the file!")
 
     def CloseSwarm(self):
         """Close swarm nicely"""
