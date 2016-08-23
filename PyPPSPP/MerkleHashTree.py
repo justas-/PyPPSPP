@@ -4,6 +4,7 @@ import math
 
 class MerkleHashTree(object):
     """Helper class for dealing with Merkle Hash Tree"""
+    # TODO: Peak Hashes
 
     def __init__(self, hash_funct, file_name, chunk_len):
         """Initialize Merkle Hash Tree using given hash function and file"""

@@ -22,6 +22,9 @@ class Swarm(object):
         self._members = []
 
         # data
+        self._chunk_selction_handle = None
+        self._chunk_offer_handle = None
+
         self.integrity = {} # Not used for now
         self.num_chunks = math.ceil(filesize / GlobalParams.chunk_size)
         self._mht = None
@@ -46,6 +49,9 @@ class Swarm(object):
         # Save timestamp when we start operating for stats
         self._ts_start = datetime.datetime.now()
         self._ts_end = None
+
+        # Start operating Chunk offerrer
+        self._chunk_offer_handle = asyncio.get_event_loop().call_later(0.5, self.ChunkOffer)
 
         logging.info("Created Swarm with ID= {0}. Num chunks: {1}"
                      .format(self.swarm_id, self.num_chunks))
@@ -90,6 +96,19 @@ class Swarm(object):
         max_chunk = max_chunk - 1
 
         return (min_chunk, max_chunk)
+
+    def ChunkOffer(self):
+        """Implements chunks sending alg"""
+
+        for member in self._members:
+            # Check if member needs anything
+            num_requested = len(member.set_requested)
+            if num_requested == 0:
+                continue
+            else:
+                member.SendChunks()
+
+        self._chunk_offer_handle = asyncio.get_event_loop().call_later(0.5, self.ChunkOffer)
 
     def ChunkRequest(self):
         """Implements Chunks selection/request algorith"""

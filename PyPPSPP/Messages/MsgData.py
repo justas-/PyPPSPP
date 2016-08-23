@@ -1,6 +1,7 @@
 import datetime
-
 from struct import pack, pack_into, unpack
+
+from Messages.MessageTypes import MsgTypes
 
 class MsgData(object):
     """A class representing PPSPP handshake message"""
@@ -17,9 +18,16 @@ class MsgData(object):
         self._chunk_addr_method = chunk_addr_method
 
     def BuildBinaryMessage(self):
-        """Build message"""
-        # TODO
-        pass
+        """Build bytearray of the message"""
+        wb = bytearray()
+        wb[0:] = pack('>cIIQ', 
+                      bytes([MsgTypes.DATA]), 
+                      self.start_chunk, 
+                      self.end_chunk, 
+                      self.one_way_delay_sample)
+        wb[len(wb):] = data
+
+        return wb
 
     def ParseReceivedData(self, data):
         """Parse binary data to an Object"""
@@ -38,11 +46,10 @@ class MsgData(object):
             raise NotImplementedError()
 
     def __str__(self):
-        return str("[DATA] Start: {0}; End: {1}; TS: {2}; Data: {3}"
+        return str("[DATA] Start: {0}; End: {1}; TS: {2}; Data Len: {3}"
                    .format(
                        self.start_chunk,
                        self.end_chunk,
-                       #datetime.datetime.fromtimestamp(self.timestamp).strftime('%Y-%m-%d %H:%M:%S'),
                        self.timestamp,
                        len(self.data)))
 

@@ -11,6 +11,7 @@ from collections import deque
 from Messages import *
 from Messages.MessageTypes import MsgTypes as MT
 from MessagesParser import MessagesParser
+from GlobalParams import GlobalParams
 
 class SwarmMember(object):
     """A class used to represent member in the swarm"""
@@ -71,10 +72,46 @@ class SwarmMember(object):
         hs[5:7] = struct.pack('>I', self.local_channel)
         hs[9:] = bm
 
+        # Add information about pieces we have
+        for range_data in self._swarm._have_ranges:
+            have = MsgHave.MsgHave()
+            have.start_chunk = range_data[0]
+            have.end_chunk = range_data[1]
+            hs[len(hs):] = have.BuildBinaryMessage()
+
         logging.info("Sending handshake to {0}:{1}. RC={2};LC={3}"
                      .format(self.ip_address, self.udp_port, self.remote_channel, self.local_channel))
         self.SendAndAccount(hs)
         self.is_hs_sent = True
+
+    def SendReplyHandshake(self, msg_handshake):
+        """Reply with a handshake when remote peer is connecting to us"""
+
+        hs = MsgHandshake.MsgHandshake()
+        hs.swarm = self._swarm.swarm_id
+        bm = hs.BuildBinaryMessage()
+
+        self.remote_channel = msg_handshake.their_channel
+        self.local_channel = random.randint(1, 65535)
+        
+        # Create a full HANDSHAKE message
+        hs = bytearray()
+        hs[0:4] = struct.pack('>I', self.remote_channel)
+        hs[4:] = bytes([MT.HANDSHAKE])
+        hs[5:7] = struct.pack('>I', self.local_channel)
+        hs[9:] = bm
+
+        # Add information about pieces we have
+        for range_data in self._swarm._have_ranges:
+            have = MsgHave.MsgHave()
+            have.start_chunk = range_data[0]
+            have.end_chunk = range_data[1]
+            hs[len(hs):] = have.BuildBinaryMessage()
+
+        logging.info("Replying with HANDSHAKE to {0}:{1}. RC={2};LC={3}"
+                     .format(self.ip_address, self.udp_port, self.remote_channel, self.local_channel))
+
+        self.SendAndAccount(hs)
 
     def SendAndAccount(self, binary_data):
         logging.debug("!! Sending BIN data: {0}".format(binascii.hexlify(binary_data)))
@@ -141,8 +178,8 @@ class SwarmMember(object):
 
         elif self.is_hs_sent == False:
             # This is remote peer initiating connection to us
-            # TODO: Make this work by replying with HS
-            return
+            self.SendReplyHandshake(handshake)
+            self.is_init = True
 
     def HandleHave(self, msg_have):
         """Update the local have map"""
@@ -193,6 +230,28 @@ class SwarmMember(object):
         #    msg_ack.one_way_delay_sample = 1000
         #    self._outbox.append(msg_ack)
 
+    def SendChunks(self):
+        """Send chunks to member"""
+        MAX_BATCH_SEND = 50
+
+        for x in range(0, MAX_SEND_BATCH):
+            first_requested = min(member.RequestChunks)
+            self._swarm._file.seek(first_requested * GlobalParams.chunk_size)
+            data = self._file.readable(GlobalParams.chunk_size)
+
+            md = MsgData.MsgData()
+            md.start_chunk = first_requested
+            md.end_chunk = first_requested
+            md.data = data
+            md.timestamp = int((time.time() * 1000000))
+
+            mdata_bin = bytearray()
+            data[0:4] = struct.pack('>I', self.remote_channel)
+            data[4:] = md.BuildBinaryMessage()
+
+            logging.info("Sending {0}".format(md))
+            SendAndAccount(mdata_bin)
+
     def RequestChunks(self, chunks_set):
         """Request chunks from this member"""
         first_chunk = min(chunks_set)
@@ -228,12 +287,13 @@ class SwarmMember(object):
         self._swarm.integrity[(msg_integrity.start_chunk, msg_integrity.end_chunk)] = msg_integrity.hash_data
 
     def HandleAck(self, msg_ack):
-        """Handle incomming ck message"""
-        return
+        """Handle incomming ACK message"""
+        for x in range(msg_ack.start_chunk, msg_ack.end_chunk + 1):
+            self.set_requested.discard(x)
 
     def HandleRequest(self, msg_request):
-        """Handle request for data that we have"""
-        for x in range(msg_request.start_chunk, msg_request.end_chunk):
+        """Handle incomming REQUEST message"""
+        for x in range(msg_request.start_chunk, msg_request.end_chunk + 1):
             self.set_requested.add(x)
 #endregion
 

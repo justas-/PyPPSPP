@@ -1,3 +1,4 @@
+from Messages.MessageTypes import MsgTypes
 from struct import pack_into, unpack
 
 class MsgHave(object):
@@ -9,8 +10,9 @@ class MsgHave(object):
 
     def BuildBinaryMessage(self):
         """Build binary version of HAVE message"""
-        wb = bytearray(8)
-        pack_into('>II', wb, 0, 
+        wb = bytearray(9)
+        pack_into('>cII', wb, 0,
+                  bytes([MsgTypes.HAVE]),
                   self.start_chunk, 
                   self.end_chunk)
 
