@@ -174,6 +174,7 @@ class SwarmMember(object):
                 self._swarm.RemoveMember(self)
             else:
                 logging.info("Received non-goodbye HANDSHAKE in initialized the channel")
+            return
 
         if self.is_hs_sent == True:
             # This is reply to our HS
