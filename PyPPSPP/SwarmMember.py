@@ -5,6 +5,7 @@ import struct
 import hashlib
 import binascii
 import time
+import asyncio
 
 from collections import deque
 
@@ -47,11 +48,15 @@ class SwarmMember(object):
         # Chunk-maps
         self.set_have = set()       # What peer has
         self.set_requested = set()  # What peer requested
+        self.set_sent = set()       # What chunks are sent but not ACK. After ACK they are removed
+        self._outstanding_backoff = False
 
         self.unverified_data = []   # Keep all unverified messages
 
         # Outbox to stuff all reply messages into one datagram
         self._outbox = deque()
+
+        self._sending_handle = None
 
     def SendHandshake(self):
         """Send initial packet to the potential remote peer"""
@@ -189,21 +194,8 @@ class SwarmMember(object):
 
     def HandleData(self, msg_data):
         """Handle the received data"""
-        # Do we have integrity for given range?
-        # We should keep integritys in scope of the peer as hash funtion can be different between the peers
+        # Place integrity checking here once ready
         
-        # Uncomment during proper integrity implementation
-        #integrity = None
-        #if (msg_data.start_chunk, msg_data.end_chunk) in self._swarm.integrity:
-        #    integrity = self._swarm.integrity[(msg_data.start_chunk, msg_data.end_chunk)]
-
-        # Calculate the integirty of received message
-        #calc_integirty = self.GetIntegrity(msg_data.data)
-        #logging.info("Calculated integrity. From: {0} To: {1} Value: {2}"
-        #             .format(msg_data.start_chunk, msg_data.end_chunk, calc_integirty))
-
-        # Compare agains value we have
-        #if integrity != None and integrity == calc_integirty:
         # Save data to file
         self._swarm.SaveVerifiedData(msg_data.start_chunk, msg_data.end_chunk, msg_data.data)
 
@@ -218,44 +210,6 @@ class SwarmMember(object):
         msg_ack.one_way_delay_sample = delay
 
         self._outbox.append(msg_ack)
-
-        #elif integrity == None:
-        #    # Add to a list of unverified data
-        #    self.unverified_data.append(msg_data)
-        #
-        #    # Acknowledge reception
-        #    msg_ack = MsgAck.MsgAck()
-        #    msg_ack.start_chunk = msg_data.start_chunk
-        #    msg_ack.end_chunk = msg_data.end_chunk
-        #    msg_ack.one_way_delay_sample = 1000
-        #    self._outbox.append(msg_ack)
-
-    def SendChunks(self, set_to_send):
-        """Send chunks to member"""
-        MAX_BATCH_SEND = 50
-
-        for x in range(0, MAX_BATCH_SEND):
-            first_requested = min(set_to_send)
-            self._swarm._file.seek(first_requested * GlobalParams.chunk_size)
-            data = self._swarm._file.read(GlobalParams.chunk_size)
-
-            md = MsgData.MsgData(self.chunk_size, self.chunk_addressing_method)
-            md.start_chunk = first_requested
-            md.end_chunk = first_requested
-            md.data = data
-            md.timestamp = int((time.time() * 1000000))
-
-            mdata_bin = bytearray()
-            data[0:4] = struct.pack('>I', self.remote_channel)
-            data[4:] = md.BuildBinaryMessage()
-
-            logging.info("Sending {0}".format(md))
-            SendAndAccount(mdata_bin)
-
-            # Stop sending if nothing more to send
-            set_to_send.discard(first_requested)
-            if len(set_to_send) == 0:
-                return
 
     def RequestChunks(self, chunks_set):
         """Request chunks from this member"""
@@ -300,8 +254,60 @@ class SwarmMember(object):
         """Handle incomming REQUEST message"""
         for x in range(msg_request.start_chunk, msg_request.end_chunk + 1):
             self.set_requested.add(x)
+
+        # Try to send some data
+        if self._sending_handle == None:
+           self._sending_handle = asyncio.get_event_loop().call_soon(self.SendRequestedChunks) 
+        
 #endregion
 
+    def SendRequestedChunks(self):
+        """Send the requested chunks to the peer"""
+        set_to_send = (self._swarm.set_have & self.set_requested) - self.set_sent
+        outstanding_len = len(set_to_send)
+
+        if outstanding_len > 0:
+            # We have stuff to send - all is fine
+            chunk_to_send = min(set_to_send)
+       
+            data = self._swarm.GetChunkData(chunk_to_send)
+        
+            md = MsgData.MsgData(self.chunk_size, self.chunk_addressing_method)
+            md.start_chunk = chunk_to_send
+            md.end_chunk = chunk_to_send
+            md.data = data
+            md.timestamp = int((time.time() * 1000000))
+
+            mdata_bin = bytearray()
+            mdata_bin[0:4] = struct.pack('>I', self.remote_channel)
+            mdata_bin[4:] = md.BuildBinaryMessage()
+
+            self.SendAndAccount(mdata_bin)
+            self.set_sent.add(chunk_to_send)
+
+            logging.info("Can serve: {0}/{1} chunks. Sent {2} chunk"
+                         .format(len(set_to_send), self._swarm.num_chunks, chunk_to_send))
+
+            # TODO: Here will live LEDBAT and delay calculation
+            self._sending_handle = asyncio.get_event_loop().call_later(0.005, self.SendRequestedChunks)
+        else:
+            # We have sent everything, now check if we need to resend
+            if len(self._swarm.set_have - self.set_requested) != 0:
+                # There are pieces in need of resending
+                if self._outstanding_backoff == False:
+                    # Give 1 sec to receive ACKs in flight
+                    logging.info("In the end-of-sending backoff")
+                    self._outstanding_backoff = True
+                    self._sending_handle = asyncio.get_event_loop().call_later(1, self.SendRequestedChunks)
+                else:
+                    # Remove un-ACKed pieces from sent set and keep sending
+                    self.set_sent = self.set_sent - self.set_requested
+                    self._sending_handle = asyncio.get_event_loop().call_soon(self.SendRequestedChunks)
+            else:
+                # All I have == all peer has
+                # Not even gonna reschedule the sender :)
+                self._sending_handle = None
+                
     def ProcessOutbox(self):
         """Binarify and send all messages in the outbox"""
         # This method should do any re-arrangement if required

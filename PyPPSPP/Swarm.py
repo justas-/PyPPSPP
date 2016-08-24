@@ -50,15 +50,12 @@ class Swarm(object):
         self._ts_start = datetime.datetime.now()
         self._ts_end = None
 
-        # Start operating Chunk offerrer
-        self._chunk_offer_handle = asyncio.get_event_loop().call_later(0.5, self.ChunkOffer)
-
         logging.info("Created Swarm with ID= {0}. Num chunks: {1}"
                      .format(self.swarm_id, self.num_chunks))
 
     def SendData(self, ip_address, port, data):
         """Send data over a socket used by this swarm"""
-        return self._socket.sendto(data, (ip_address, port))
+        self._socket.sendto(data, (ip_address, port))
 
     def AddMember(self, ip_address, port = 6778):
         """Add a member to a swarm and try to initialize connection"""
@@ -96,19 +93,6 @@ class Swarm(object):
         max_chunk = max_chunk - 1
 
         return (min_chunk, max_chunk)
-
-    def ChunkOffer(self):
-        """Implements chunks sending alg"""
-
-        for member in self._members:
-            # Intersect my chunks with requested chunks
-            set_required_and_present = self.set_have & member.set_requested
-            if len(set_required_and_present) == 0:
-                continue
-            else:
-                member.SendChunks(set_required_and_present)
-
-        self._chunk_offer_handle = asyncio.get_event_loop().call_later(0.5, self.ChunkOffer)
 
     def ChunkRequest(self):
         """Implements Chunks selection/request algorith"""
@@ -219,6 +203,11 @@ class Swarm(object):
         self._chunk_selction_handle = asyncio.get_event_loop().call_later(0.5, self.ChunkRequest)
 
         logging.info("Created empty file and started chunk selection")
+
+    def GetChunkData(self, chunk):
+        """Get Data of indicated chunk"""
+        self._file.seek(chunk * GlobalParams.chunk_size)
+        return self._file.read(GlobalParams.chunk_size)
 
     def InitValidFile(self):
         """We have the file and it passes validation"""

@@ -24,8 +24,8 @@ class MsgData(object):
                       bytes([MsgTypes.DATA]), 
                       self.start_chunk, 
                       self.end_chunk, 
-                      self.one_way_delay_sample)
-        wb[len(wb):] = data
+                      self.timestamp)
+        wb[len(wb):] = self.data
 
         return wb
 
