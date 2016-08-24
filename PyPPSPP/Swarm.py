@@ -223,6 +223,11 @@ class Swarm(object):
 
         logging.info("File integrity valid. Seeding the file!")
 
+    def RemoveMember(self, member):
+        """Remove indicated member from a swarm"""
+        logging.info("Removing member {0} from a swarm".format(member))
+        self._members.remove(member)
+
     def CloseSwarm(self):
         """Close swarm nicely"""
         logging.info("Request to close swarm nicely!")

@@ -33,6 +33,9 @@ class MsgHandshake(object):
         
         wb = bytearray()
         wb[0:] = pack('>cI', bytes([MsgTypes.HANDSHAKE]), 0)
+        wb[len(wb):] = pack('cc', bytes([0]), bytes([self.version]))
+        wb[len(wb):] = pack('cc', bytes([1]), bytes([self.min_version]))
+        wb[len(wb):] = pack('c', bytes([255]))
 
         self._is_goodbye = True
         return wb

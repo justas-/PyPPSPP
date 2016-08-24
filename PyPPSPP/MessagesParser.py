@@ -34,6 +34,8 @@ class MessagesParser(object):
                 data_read = message.ParseReceivedData(received_data[data_parsed:])
                 message.our_channel = my_channel
                 message.their_channel = their_channel
+                if their_channel == 0:
+                    message._is_goodbye = True
                 data_parsed = data_parsed + data_read
                 messages.append(message)
             elif type == MT.DATA:
