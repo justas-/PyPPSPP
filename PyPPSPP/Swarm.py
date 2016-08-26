@@ -59,10 +59,14 @@ class Swarm(object):
 
     def AddMember(self, ip_address, port = 6778):
         """Add a member to a swarm and try to initialize connection"""
-
         logging.info("Swarm: Adding member at {0}:{1}".format(ip_address, port))
 
-        # TODO - Check if already present
+        for member in self._members:
+            if member.ip_address == ip_address and member.udp_port == port:
+                logging.info("Member {0}:{1} is already present and will be ignorred"
+                             .format(ip_address, port))
+                return None
+
         m = SwarmMember(self, ip_address, port)
         self._members.append(m)
         return m

@@ -31,6 +31,9 @@
     <Compile Include="MessagesParser.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Framer.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Messages\MessageTypes.py">
       <SubType>Code</SubType>
     </Compile>
@@ -68,10 +71,16 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="PyPPSPP.py" />
+    <Compile Include="SimpleTracker.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Swarm.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="SwarmMember.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="TrackerClientProtocol.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="__init__.py">

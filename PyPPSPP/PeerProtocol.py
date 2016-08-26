@@ -19,27 +19,9 @@ class PeerProtocol(object):
         self.transport = transport
         logging.info("connection_made callback")
 
-        # We have connected socket. Start creating a swarm
-        # TODO: Now only one swarm is supported
-        # TODO: Now swarm ID is hardcoded
-        
-        #swarm_id = binascii.unhexlify("82d3614b17dcac7624e58b2bee9bca1580a87b75")
-        #swarm_filename = "C:\PyPPSPP\HelloWorld.txt"
-        #swarm_file_size = 33
-
-        swarm_id = binascii.unhexlify("87a5e6618b2af6f92854eb83e2664d09af7db138")
-        swarm_filename = r"C:\PyPPSPP\test10MB.bin"
-        swarm_file_size = 10485788
-
-        #swarm_id = binascii.unhexlify("87323eba55d370afcbfdf40ee4fd2b248bb98afb")
-        #swarm_filename = r"C:\PyPPSPP\test1MB.bin"
-        #swarm_file_size = 1048536
-
-        self.swarm = Swarm.Swarm(self.transport, swarm_id, swarm_filename, swarm_file_size)
-
-        # TODO: Now we add the bootstrap member
-        m = self.swarm.AddMember("127.0.0.1", 8888)
-        m.SendHandshake()
+    def init_swarm(self, swarm_id, swarm_filename, swarm_filesize):
+        """Initialize the swarm"""
+        self.swarm = Swarm.Swarm(self.transport, swarm_id, swarm_filename, swarm_filesize)
 
     def datagram_received(self, data, addr):
         # Called on incomming datagram
@@ -53,6 +35,9 @@ class PeerProtocol(object):
         if my_channel == 0:
             # This is new peer making connection to us
             new_member = self.swarm.AddMember(addr[0], addr[1])
+            if new_member is None:
+                logging.warn("NOT IMPLEMENTED: Clean old member. add this one!!!")
+                return
             new_member.ParseData(data)
         else:
             # Tr to find requested channel
