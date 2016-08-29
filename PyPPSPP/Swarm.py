@@ -141,17 +141,15 @@ class Swarm(object):
         x_max = 0
         in_range = False
 
-        while x in range(0, self.num_chunks):
+        for x in range(0, self.num_chunks+1):
             if x in self.set_have:
                 if in_range == False:
                     # Start of new range of chunks we have
                     x_min = x
                     in_range = True
-                    continue
                 else:
                     # We are in range and we have this chunk
                     x_max = x
-                    continue
             else:
                 if in_range == False:
                     # We are not in range and don't have this chunk
@@ -163,7 +161,6 @@ class Swarm(object):
 
                     # Add to a range of chunks we have
                     self._have_ranges.append((x_min, x_max)) 
-                    continue
 
     def SaveVerifiedData(self, start_chunk, end_chunk, data):
         """Called when we receive data from a peer and validate the integrity"""
@@ -230,8 +227,8 @@ class Swarm(object):
         for x in range(self.num_chunks):
             self.set_have.add(x)
 
-        # Inform that we have all pieces
-        self._have_ranges.append((0, self.num_chunks))
+        # Build have ranges
+        self.BuildHaveRanges()
 
         logging.info("File integrity valid. Seeding the file!")
 
