@@ -29,7 +29,10 @@ class SimpleTracker(object):
         if data['type'] == 'other_peers':
             # We got information about other peers in the system
             for member in data['details']:
-                self._swarm.AddMember(member[0], member[1])
+                m = self._swarm.AddMember(member[0], member[1])
+                if m != None:
+                    m.SendHandshake()
+
         else:
             logging.info("Unhandled Tracker message: {0}".format(data))
     

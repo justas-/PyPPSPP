@@ -175,23 +175,31 @@ class SwarmMember(object):
             else:
                 logging.info("Received non-goodbye HANDSHAKE in initialized the channel")
             return
+        else:
+            # Remote member is not init!
+            if msg_handshake._is_goodbye ==  True:
+                # Got Goodbye from non-init member...
+                logging.info("Received goodbye HANDSHAKE from non-init member")
+                if self._sending_handle != None:
+                    self._sending_handle.cancel()
+                    self._sending_handle = None
+                self._swarm.RemoveMember(self)
+            elif self.is_hs_sent == True:
+                # This is reply to our HS
+                # TODO: for now just care about channel numbers
+                # TODO: Verify that our Python knows how to validate given hash type
+                self.remote_channel = msg_handshake.their_channel
+                self.hash_type = msg_handshake.merkle_tree_hash_func
+                self.chunk_addressing_method = msg_handshake.chunk_addressing_method
+                self.chunk_size = msg_handshake.chunk_size
+                self.is_init = True
+                logging.info("Received reply HANDSHAKE and initialized the channel")
 
-        if self.is_hs_sent == True:
-            # This is reply to our HS
-            # TODO: for now just care about channel numbers
-            # TODO: Verify that our Python knows how to validate given hash type
-            self.remote_channel = msg_handshake.their_channel
-            self.hash_type = msg_handshake.merkle_tree_hash_func
-            self.chunk_addressing_method = msg_handshake.chunk_addressing_method
-            self.chunk_size = msg_handshake.chunk_size
-            self.is_init = True
-            logging.info("Received reply HANDSHAKE and initialized the channel")
-
-        elif self.is_hs_sent == False:
-            # This is remote peer initiating connection to us
-            self.SendReplyHandshake(msg_handshake)
-            self.is_init = True
-            logging.info("Received init HANDSHAKE. Replied and initialzed the channel")
+            elif self.is_hs_sent == False:
+                # This is remote peer initiating connection to us
+                self.SendReplyHandshake(msg_handshake)
+                self.is_init = True
+                logging.info("Received init HANDSHAKE. Replied and initialzed the channel")
 
     def HandleHave(self, msg_have):
         """Update the local have map"""
