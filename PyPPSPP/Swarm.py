@@ -38,12 +38,16 @@ class Swarm(object):
         self._last_num_missing = 0
         
         if (os.path.isfile(self.filename)):
+            logging.info("File found. Checking integrity")
             self._mht = MerkleHashTree('sha1', self.filename, GlobalParams.chunk_size)
             if swarm_id == self._mht.root_hash:
+                logging.info("File integrity checking passed. Starting to share the file")
                 self.InitValidFile()
             else:
+                logging.info("File integrity checking failed. Recreating the file")
                 self.InitNewFile()
         else:
+            logging.info("No file found. Creating an empty file")
             self.InitNewFile()
         
         # Save timestamp when we start operating for stats

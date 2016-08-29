@@ -17,10 +17,10 @@ logging.info ("PyPPSPP starting")
 def main(argv):
     # TODO: Move whatever possible to tracker
     # Leave here just download directory
-    trackerip = ''      
-    filename = ''
-    swarmid = ''
-    filesize = 0
+    trackerip = '127.0.0.1'      
+    filename = 'test10MB.bin'
+    swarmid = '87a5e6618b2af6f92854eb83e2664d09af7db138'
+    filesize = 10485788
 
     try:
         opts, args = getopt.getopt(argv, "t:f:s:z", ["tracker=", "filename=", "swarmid=", "filesize="])
@@ -28,22 +28,15 @@ def main(argv):
         print("Error parsing command line arguments")
         sys.exit(1)
 
-    if len(opts) == 0:
-        # Set the defaults
-        trackerip = '127.0.0.1'
-        filename = 'test10MB.bin'
-        swarmid = '87a5e6618b2af6f92854eb83e2664d09af7db138'
-        filesize = 10485788
-    else:
-        for opt, arg in opts:
-            if opt in ("-t", "--tracker"):
-                trackerip = arg
-            elif opt in ("-f", "--filename"):
-                filename = arg
-            elif opt in ("-s", "--swarmid"):
-                swarmid = arg
-            elif opt in ("-z", "--filesize"):
-                filesize = int(arg)
+    for opt, arg in opts:
+        if opt in ("-t", "--tracker"):
+            trackerip = arg
+        elif opt in ("-f", "--filename"):
+            filename = arg
+        elif opt in ("-s", "--swarmid"):
+            swarmid = arg
+        elif opt in ("-z", "--filesize"):
+            filesize = int(arg)
 
     logging.info("PPSPP Parameters:\n\tTracker: {0};\n\tFilename: {1};\n\tFilesize: {2}B;\n\tSwarm: {3}"
                  .format(trackerip, filename, filesize, swarmid))
@@ -63,7 +56,7 @@ def main(argv):
     tracker.SetTrackerProtocol(traceker_server)
 
     # Create an UDP server
-    # Since we are using Tracker, we don't have to run on 6778 port!
+    # Since we are using Tracker, we don't have to run n 6778 port!
     listen = loop.create_datagram_endpoint(PeerProtocol, local_addr=("0.0.0.0", 6778))
     transport, protocol = loop.run_until_complete(listen)
 
@@ -73,7 +66,7 @@ def main(argv):
     # TODO: This is not the right place to do it...
 
     # Create the swarm
-    protocol.init_swarm(swarmid, filename, filesize)
+    protocol.init_swarm(binascii.unhexlify(swarmid), filename, filesize)
 
     # Inform tracker about swarm ready to receive connections
     tracker.SetSwarm(protocol.swarm)
@@ -105,4 +98,4 @@ def main(argv):
     loop.close()
 
 if __name__ == "__main__":
-    main(sys.argv[1:0])
+    main(sys.argv[1:])
