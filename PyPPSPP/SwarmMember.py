@@ -107,11 +107,13 @@ class SwarmMember(object):
         hs[9:] = bm
 
         # Add information about pieces we have
+        self._swarm.BuildHaveRanges()
         for range_data in self._swarm._have_ranges:
             have = MsgHave.MsgHave()
             have.start_chunk = range_data[0]
             have.end_chunk = range_data[1]
-            hs[len(hs):] = have.BuildBinaryMessage()
+            hs.extend(have.BuildBinaryMessage())
+            logging.info("Pigybacking on HANDSHAKE: {0}".format(have))
 
         logging.info("Replying with HANDSHAKE to {0}:{1}. RC={2};LC={3}"
                      .format(self.ip_address, self.udp_port, self.remote_channel, self.local_channel))

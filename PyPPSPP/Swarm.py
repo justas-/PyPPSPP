@@ -121,7 +121,10 @@ class Swarm(object):
         # TODO: Implement smart algorithm here
         for member in self._members:
             set_i_need = member.set_have - self.set_have - self.set_requested
-            if len(set_i_need) > 0:
+            len_i_need = len(set_i_need)
+            logging.info("Need {0} chunks from member {1}"
+                         .format(len_i_need, member))
+            if len_i_need > 0:
                 member.RequestChunks(set_i_need)
 
         # Number of chunks missing at the end of chunk selection alg run
@@ -197,6 +200,7 @@ class Swarm(object):
             self._file_completed = True
             
             logging.info("No more missing chunks. Reopening file read-only!")
+            self.BuildHaveRanges()
             self.ReportData()
 
     def InitNewFile(self):
@@ -238,8 +242,9 @@ class Swarm(object):
 
     def ReportData(self):
         """Report amount of data sent and received from each peer"""
+        logging.info("File download completed! Stats:")
         for member in self._members:
-            logging.info("Member: {0}\t\tRX: {1} Bytes;\tTX: {2} Bytes"
+            logging.info("   Member: {0};\tRX: {1} Bytes; TX: {2} Bytes"
                          .format(member, member._total_data_rx, member._total_data_tx))
 
     def CloseSwarm(self):
