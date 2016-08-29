@@ -251,7 +251,7 @@ class SwarmMember(object):
         data[4:] = bytes([MT.REQUEST])
         data[5:] = req.BuildBinaryMessage()
 
-        logging.info("Sending: {0}".format(req))
+        logging.info("TX > To: {0}; Msg: {1}".format(self, req))
 
         self.SendAndAccount(data)
         self._swarm.set_requested = self._swarm.set_requested.union(request)
@@ -379,3 +379,10 @@ class SwarmMember(object):
             return hashlib.sha512(data).digest()
         else:
             return None
+
+    def __str__(self):
+        return str("Peer {0}:{1} LC: {2}; RC: {3}"
+                   .format(self.ip_address, self.udp_port, self.local_channel, self.remote_channel))
+
+    def __rept(self):
+        return self__str__()

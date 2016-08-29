@@ -123,7 +123,6 @@ class Swarm(object):
             set_i_need = member.set_have - self.set_have - self.set_requested
             if len(set_i_need) > 0:
                 member.RequestChunks(set_i_need)
-                break
 
         # Number of chunks missing at the end of chunk selection alg run
         self._last_num_missing = len(self.set_requested)
@@ -198,6 +197,7 @@ class Swarm(object):
             self._file_completed = True
             
             logging.info("No more missing chunks. Reopening file read-only!")
+            self.ReportData()
 
     def InitNewFile(self):
         """There is no file, or file is not full"""
@@ -235,6 +235,12 @@ class Swarm(object):
         """Remove indicated member from a swarm"""
         logging.info("Removing member {0} from a swarm".format(member))
         self._members.remove(member)
+
+    def ReportData(self):
+        """Report amount of data sent and received from each peer"""
+        for member in self._members:
+            logging.info("Member: {0}\t\tRX: {1} Bytes;\tTX: {2} Bytes"
+                         .format(member, member._total_data_rx, member._total_data_tx))
 
     def CloseSwarm(self):
         """Close swarm nicely"""
