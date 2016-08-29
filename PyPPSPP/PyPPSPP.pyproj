@@ -92,6 +92,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="ReadMe.md" />
+    <Content Include="TestFiles.txt" />
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
