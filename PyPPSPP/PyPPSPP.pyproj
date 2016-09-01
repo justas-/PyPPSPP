@@ -22,6 +22,12 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="ContentConsumer.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ContentGenerator.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="GlobalParams.py">
       <SubType>Code</SubType>
     </Compile>
@@ -91,9 +97,9 @@
     <Folder Include="Messages\" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="CSV_Audio_Frames.csv" />
+    <Content Include="CSV_Video_Frames.csv" />
     <Content Include="ReadMe.md" />
-    <Content Include="SCV_Audio_Frames.csv" />
-    <Content Include="SCV_Video_Frames.csv" />
     <Content Include="TestFiles.txt" />
   </ItemGroup>
   <PropertyGroup>
