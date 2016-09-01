@@ -92,6 +92,8 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="ReadMe.md" />
+    <Content Include="SCV_Audio_Frames.csv" />
+    <Content Include="SCV_Video_Frames.csv" />
     <Content Include="TestFiles.txt" />
   </ItemGroup>
   <PropertyGroup>
