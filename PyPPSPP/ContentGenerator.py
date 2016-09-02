@@ -30,8 +30,8 @@ class ContentGenerator(object):
 
     def StopGenerating(self):
         """Stop and reset the generator"""
-        self._callback.cancel()
-        self._callback = None
+        self._gen_handle.cancel()
+        self._gen_handle = None
 
     def _GenNext(self):
         """Generate and schedule next output"""
@@ -66,7 +66,7 @@ class ContentGenerator(object):
 
         # Schedule next generation
         self._next_key += 1
-        self._callback = self._loop.call_later(1 / self._fps, self._GenNext)
+        self._gen_handle = self._loop.call_later(1 / self._fps, self._GenNext)
 
     def _InitSamples(self):
         with open('CSV_Audio_Frames.csv', 'r') as audio_csv:

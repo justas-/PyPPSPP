@@ -4,10 +4,12 @@ import asyncio
 import datetime
 import os
 import hashlib
+import struct
 
 from SwarmMember import SwarmMember
 from GlobalParams import GlobalParams
 from MerkleHashTree import MerkleHashTree
+from Messages import *
 
 from AbstractChunkStorage import AbstractChunkStorage
 from MemoryChunkStorage import MemoryChunkStorage
@@ -39,7 +41,8 @@ class Swarm(object):
         self._last_num_missing = 0
 
         if self.live:
-            self._chunk_storage = MemoryChunkStorage()
+            self._chunk_storage = MemoryChunkStorage(self)
+            self._chunk_storage.Initialize(True)
         else:
             self._chunk_storage = FileChunkStorage(self)
             self._chunk_storage.Initialize(
@@ -150,6 +153,24 @@ class Swarm(object):
     def SaveVerifiedData(self, chunk_id, data):
         """Called when we receive data from a peer and validate the integrity"""
         self._chunk_storage.SaveChunkData(chunk_id, data)
+
+    def SendHaveToMembers(self):
+        """Send to members all information about chunks we have"""
+        
+        # Build representation of our data using HAVE messages
+        msg = bytearray()
+        for range_data in self._have_ranges:
+            have = MsgHave.MsgHave()
+            have.start_chunk = range_data[0]
+            have.end_chunk = range_data[1]
+            msg.extend(have.BuildBinaryMessage())
+
+        # Send our information to all members
+        for member in self._members:
+            hs = bytearray()
+            hs.extend(struct.pack('>I', member.remote_channel))
+            hs.extend(msg)
+            member.SendAndAccount(hs)
 
     def GetChunkData(self, chunk):
         """Get Data of indicated chunk"""
