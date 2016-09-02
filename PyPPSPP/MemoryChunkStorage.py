@@ -8,6 +8,7 @@ import struct
 from ContentGenerator import ContentGenerator
 from AbstractChunkStorage import AbstractChunkStorage
 from GlobalParams import GlobalParams
+from Framer import Framer
 
 # TODO: Generating and injecting should be carved away from this one...
 
@@ -21,6 +22,9 @@ class MemoryChunkStorage(AbstractChunkStorage):
         self._cg = None
         self._is_source = False
         self._last_inject_id = 0
+        
+        self._framer = None   # Frame from network data to A/V frames
+        self._next_frame = 1  # Id of the next chunk that should be fed to framer
 
     def Initialize(self, is_source):
         """Initialize In Memory storage"""
@@ -32,6 +36,8 @@ class MemoryChunkStorage(AbstractChunkStorage):
                 self.ContentGenerated,
                 0)
             self._cg.StartGenerating()
+        else:
+            self._framer = Framer(self.DataFramed)
 
     def CloseStorage(self):
         self._chunks.clear()
@@ -50,8 +56,24 @@ class MemoryChunkStorage(AbstractChunkStorage):
             # We are not saving in source mode
             raise Exception
         else:
-            self._chunks[chunk_id] = data
-            # Todo - update have ranges
+            if chunk_id in self._chunks.keys():
+                # TODO: Log duplicate data
+                return
+            else:
+                self._chunks[chunk_id] = data
+                self.BuildHaveRanges()
+                self._swarm.SendHaveToMembers() # TODO: Every time?
+
+        if self._is_source == False:
+            # If we are not source - we need to unframe data as well
+            for x in self._chunks.keys():
+                if x < self._last_framed:
+                    # This chunk is already framed
+                    continue
+                if x == self._next_frame:
+                    # Feed the framer if this is what we need
+                    self._framer.DataReceived(self._chunks[x])
+                    self._next_frame += 1
 
     def ContentGenerated(self, data):
         # Pickle audio and video data
@@ -112,3 +134,8 @@ class MemoryChunkStorage(AbstractChunkStorage):
                 else:
                     self._swarm._have_ranges.append((x_min, x))
                     in_range = False
+
+    def DataFramed(self, data):
+        """Called by framer once data arrives"""
+        av_data = pickle.loads(data)
+        logging.info("Got AV data!")
