@@ -70,6 +70,9 @@ class FileChunkStorage(AbstractChunkStorage):
         self._swarm.set_requested.discard(chunk_id)
         self._swarm.set_missing.discard(chunk_id)
 
+        # Update what we have
+        self.BuildHaveRanges()
+
         # Close the file once we are done and reopen read-only
         if len(self._swarm.set_missing) == 0:
             self._ts_end = datetime.datetime.now()
@@ -82,11 +85,10 @@ class FileChunkStorage(AbstractChunkStorage):
 
             # Reopen in read-only
             self._file.close()
-            self._file = open(self.filename, 'br')
+            self._file = open(self._file_name, 'br')
             self._file_completed = True
             
             logging.info("No more missing chunks. Reopening file read-only!")
-            self.BuildHaveRanges()
             self._swarm.ReportData()
 
     def InitValidFile(self):
@@ -105,7 +107,7 @@ class FileChunkStorage(AbstractChunkStorage):
 
     def InitNewFile(self):
         """There is no file, or file is not full"""
-        self._file = open(self.filename, 'bw')
+        self._file = open(self._file_name, 'bw')
         self._file_completed = False
 
         for x in range(self._num_chunks):

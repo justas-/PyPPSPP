@@ -107,7 +107,6 @@ class SwarmMember(object):
         hs[9:] = bm
 
         # Add information about pieces we have
-        self._swarm.BuildHaveRanges()
         for range_data in self._swarm._have_ranges:
             have = MsgHave.MsgHave()
             have.start_chunk = range_data[0]
