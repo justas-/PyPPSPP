@@ -18,10 +18,11 @@ from FileChunkStorage import FileChunkStorage
 class Swarm(object):
     """A class used to represent a swarm in PPSPP"""
 
-    def __init__(self, socket, swarm_id, filename, filesize, live):
+    def __init__(self, socket, swarm_id, filename, filesize, live, live_src):
         """Initialize the object representing a swarm"""
         self.swarm_id = swarm_id
         self.live = live
+        self.live_src = live_src
 
         self._socket = socket
         self._members = []
@@ -42,7 +43,9 @@ class Swarm(object):
 
         if self.live:
             self._chunk_storage = MemoryChunkStorage(self)
-            self._chunk_storage.Initialize(True)
+            self._chunk_storage.Initialize(self.live_src)
+            if live_src != False:
+                self.StartChunkRequesting()
         else:
             self._chunk_storage = FileChunkStorage(self)
             self._chunk_storage.Initialize(

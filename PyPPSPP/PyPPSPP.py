@@ -18,13 +18,14 @@ def main(argv):
     # TODO: Move whatever possible to tracker
     # Leave here just download directory
     trackerip = '127.0.0.1'      
-    filename = 'test10MB.bin'
+    filename = 'test10MB-.bin'
     swarmid = '87a5e6618b2af6f92854eb83e2664d09af7db138'
     filesize = 10485788
     live = False
+    live_src = False
 
     try:
-        opts, args = getopt.getopt(argv, "t:f:s:z:l", ["tracker=", "filename=", "swarmid=", "filesize=", "live"])
+        opts, args = getopt.getopt(argv, "t:f:s:z:l", ["tracker=", "filename=", "swarmid=", "filesize=", "live", "live-src"])
     except getopt.GetoptError:
         print("Error parsing command line arguments")
         sys.exit(1)
@@ -40,6 +41,8 @@ def main(argv):
             filesize = int(arg)
         elif opt in ("-l", "--live"):
             live = True
+        elif opt in ("--live-src"):
+            live_src = True
 
     logging.info("PPSPP Parameters:\n\tTracker: {0};\n\tFilename: {1};\n\tFilesize: {2}B;\n\tSwarm: {3};\n\tLive: {4};"
                  .format(trackerip, filename, filesize, swarmid, live))
@@ -69,7 +72,7 @@ def main(argv):
     # TODO: This is not the right place to do it...
 
     # Create the swarm
-    protocol.init_swarm(binascii.unhexlify(swarmid), filename, filesize, live)
+    protocol.init_swarm(binascii.unhexlify(swarmid), filename, filesize, live, live_src)
 
     # Inform tracker about swarm ready to receive connections
     tracker.SetSwarm(protocol.swarm)
