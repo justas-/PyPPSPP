@@ -78,7 +78,7 @@ class FileChunkStorage(AbstractChunkStorage):
             self._ts_end = datetime.datetime.now()
             elapsed_time = self._ts_end - self._ts_start
             elapsed_seconds = elapsed_time.total_seconds()
-            logging.info("Downloaded in {0}s. Speed: {1}Bps".format(elapsed_seconds, self.filesize / elapsed_seconds))
+            logging.info("Downloaded in {0}s. Speed: {1}Bps".format(elapsed_seconds, self._file_size / elapsed_seconds))
 
             # Once all downlaoded - stop running the selection alg
             self._swarm.StopChunkRequesting()
