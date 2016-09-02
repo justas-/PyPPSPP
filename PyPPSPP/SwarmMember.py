@@ -303,7 +303,7 @@ class SwarmMember(object):
             self.set_sent.add(chunk_to_send)
 
             logging.info("Can serve: {0}/{1} chunks. Sent {2} chunk"
-                         .format(len(set_to_send), self._swarm.num_chunks, chunk_to_send))
+                         .format(len(set_to_send), len(self._swarm.set_have), chunk_to_send))
 
             # TODO: Here will live LEDBAT and delay calculation
             self._sending_handle = asyncio.get_event_loop().call_later(0.005, self.SendRequestedChunks)

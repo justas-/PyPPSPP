@@ -87,7 +87,8 @@ class Swarm(object):
             min_chunk = min_chunk - 1
         min_chunk = min_chunk + 1
 
-        while max_chunk <= self.num_chunks and max_chunk in self.set_have:
+        max_have = max(self.set_have)
+        while max_chunk <= max_have and max_chunk in self.set_have:
             max_chunk = max_chunk + 1
         max_chunk = max_chunk - 1
 
