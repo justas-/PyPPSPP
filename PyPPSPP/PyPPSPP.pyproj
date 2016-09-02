@@ -22,13 +22,22 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="AbstractChunkStorage.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="ContentConsumer.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ContentGenerator.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="FileChunkStorage.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="GlobalParams.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="MemoryChunkStorage.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="MerkleHashTree.py">

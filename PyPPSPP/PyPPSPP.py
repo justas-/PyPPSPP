@@ -21,9 +21,10 @@ def main(argv):
     filename = 'test10MB.bin'
     swarmid = '87a5e6618b2af6f92854eb83e2664d09af7db138'
     filesize = 10485788
+    live = False
 
     try:
-        opts, args = getopt.getopt(argv, "t:f:s:z", ["tracker=", "filename=", "swarmid=", "filesize="])
+        opts, args = getopt.getopt(argv, "t:f:s:z:l", ["tracker=", "filename=", "swarmid=", "filesize=", "live"])
     except getopt.GetoptError:
         print("Error parsing command line arguments")
         sys.exit(1)
@@ -37,9 +38,11 @@ def main(argv):
             swarmid = arg
         elif opt in ("-z", "--filesize"):
             filesize = int(arg)
+        elif opt in ("-l", "--live"):
+            live = True
 
-    logging.info("PPSPP Parameters:\n\tTracker: {0};\n\tFilename: {1};\n\tFilesize: {2}B;\n\tSwarm: {3}"
-                 .format(trackerip, filename, filesize, swarmid))
+    logging.info("PPSPP Parameters:\n\tTracker: {0};\n\tFilename: {1};\n\tFilesize: {2}B;\n\tSwarm: {3};\n\tLive: {4};"
+                 .format(trackerip, filename, filesize, swarmid, live))
 
     # Start minimalistic event loop
     loop = asyncio.get_event_loop()
@@ -66,7 +69,7 @@ def main(argv):
     # TODO: This is not the right place to do it...
 
     # Create the swarm
-    protocol.init_swarm(binascii.unhexlify(swarmid), filename, filesize)
+    protocol.init_swarm(binascii.unhexlify(swarmid), filename, filesize, live)
 
     # Inform tracker about swarm ready to receive connections
     tracker.SetSwarm(protocol.swarm)

@@ -9,53 +9,44 @@ from SwarmMember import SwarmMember
 from GlobalParams import GlobalParams
 from MerkleHashTree import MerkleHashTree
 
+from AbstractChunkStorage import AbstractChunkStorage
+from MemoryChunkStorage import MemoryChunkStorage
+from FileChunkStorage import FileChunkStorage
+
 class Swarm(object):
     """A class used to represent a swarm in PPSPP"""
 
-    def __init__(self, socket, swarm_id, filename, filesize):
+    def __init__(self, socket, swarm_id, filename, filesize, live):
         """Initialize the object representing a swarm"""
         self.swarm_id = swarm_id
-        self.filename = filename
-        self.filesize = filesize
-        
+        self.live = live
+
         self._socket = socket
         self._members = []
 
         # data
+        # TODO: Live discard window!
+        self._selection_rps = 3         # Frequency of selection alg run (runs per second)
+        self._chunk_storage = None
         self._chunk_selction_handle = None
         self._chunk_offer_handle = None
 
-        self.integrity = {} # Not used for now
-        self.num_chunks = math.ceil(filesize / GlobalParams.chunk_size)
-        self._mht = None
-        self._file = None
+        self.set_have = set()           # This is all I have
+        self.set_missing = set()        # This is what I am missing. Always empty in the source of the live stream
+        self.set_requested = set()      # This is what I have requested. Always empty in the source of the live stream
 
-        self.set_have = set()
-        self.set_missing = set()
-        self.set_requested = set()
-
-        self._have_ranges = [] # List of ranges of chunks we have verified
+        self._have_ranges = []          # List of ranges of chunks we have verified
         self._last_num_missing = 0
-        
-        if (os.path.isfile(self.filename)):
-            logging.info("File found. Checking integrity")
-            self._mht = MerkleHashTree('sha1', self.filename, GlobalParams.chunk_size)
-            if swarm_id == self._mht.root_hash:
-                logging.info("File integrity checking passed. Starting to share the file")
-                self.InitValidFile()
-            else:
-                logging.info("File integrity checking failed. Recreating the file")
-                self.InitNewFile()
-        else:
-            logging.info("No file found. Creating an empty file")
-            self.InitNewFile()
-        
-        # Save timestamp when we start operating for stats
-        self._ts_start = datetime.datetime.now()
-        self._ts_end = None
 
-        logging.info("Created Swarm with ID= {0}. Num chunks: {1}"
-                     .format(self.swarm_id, self.num_chunks))
+        if self.live:
+            self._chunk_storage = MemoryChunkStorage()
+        else:
+            self._chunk_storage = FileChunkStorage(self)
+            self._chunk_storage.Initialize(
+                filename = filename, 
+                filesize = filesize)
+
+        logging.info("Created Swarm with ID: {0}".format(self.swarm_id))
 
     def SendData(self, ip_address, port, data):
         """Send data over a socket used by this swarm"""
@@ -102,6 +93,26 @@ class Swarm(object):
 
         return (min_chunk, max_chunk)
 
+    def StartChunkRequesting(self):
+        """Start running chunk selection algorithm"""
+        if self._chunk_selction_handle != None:
+            # Error in program logic somewhere
+            raise Exception
+
+        # Schedule the execution of selection alg
+        self._chunk_selction_handle = asyncio.get_event_loop().call_later(
+            1 / self._selection_rps, 
+            self.ChunkRequest)
+
+    def StopChunkRequesting(self):
+        """Stop running chunk selection algorithm"""
+        if self._chunk_selction_handle == None:
+            # Error in program logic somewhere
+            raise Exception
+
+        self._chunk_selction_handle.cancel()
+        self._chunk_selction_handle = None
+
     def ChunkRequest(self):
         """Implements Chunks selection/request algorith"""
         
@@ -131,106 +142,17 @@ class Swarm(object):
         self._last_num_missing = len(self.set_requested)
 
         # Schedule a call to select chunks again
-        asyncio.get_event_loop().call_later(0.5, self.ChunkRequest)
+        self._chunk_selction_handle = asyncio.get_event_loop().call_later(
+            1 / self._selection_rps,
+            self.ChunkRequest)
 
-    def BuildHaveRanges(self):
-        """Populate have ranges list"""
-        self._have_ranges.clear()
-
-        x_min = 0
-        x_max = 0
-        in_range = False
-
-        for x in range(0, self.num_chunks+1):
-            if x in self.set_have:
-                if in_range == False:
-                    # Start of new range of chunks we have
-                    x_min = x
-                    in_range = True
-                else:
-                    # We are in range and we have this chunk
-                    x_max = x
-            else:
-                if in_range == False:
-                    # We are not in range and don't have this chunk
-                    continue
-                else:
-                    # We are in range and don't have this chunk
-                    # We are no longer in range of chunks we have
-                    in_range = False
-
-                    # Add to a range of chunks we have
-                    self._have_ranges.append((x_min, x_max)) 
-
-    def SaveVerifiedData(self, start_chunk, end_chunk, data):
+    def SaveVerifiedData(self, chunk_id, data):
         """Called when we receive data from a peer and validate the integrity"""
-        # For now we assume 1024 Byte chunks. This is not always the case
-        # as remote peer might be operating using other size chunks
-
-        # Do not overwrite completed files. Ignore duplicate chunks
-        if self._file_completed == True:
-            return
-
-        self._file.seek(start_chunk * GlobalParams.chunk_size)
-        self._file.write(data)
-        logging.info("Wrote to file from chunk {0} to chunk {1}".format(start_chunk, end_chunk))
-
-        # Update present / requested / missing chunks
-        for x in range(start_chunk, end_chunk+1): 
-            self.set_have.add(x)
-            self.set_requested.discard(x)
-            self.set_missing.discard(x)
-
-        # Close the file once we are done and reopen read-only
-        if len(self.set_missing) == 0:
-            self._ts_end = datetime.datetime.now()
-            elapsed_time = self._ts_end - self._ts_start
-            elapsed_seconds = elapsed_time.total_seconds()
-            logging.info("Downloaded in {0}s. Speed: {1}Bps".format(elapsed_seconds, self.filesize / elapsed_seconds))
-
-            # Once all downlaoded - stop running the selection alg
-            self._chunk_selction_handle.cancel()
-
-            # Reopen in read-only
-            self._file.close()
-            self._file = open(self.filename, 'br')
-            self._file_completed = True
-            
-            logging.info("No more missing chunks. Reopening file read-only!")
-            self.BuildHaveRanges()
-            self.ReportData()
-
-    def InitNewFile(self):
-        """There is no file, or file is not full"""
-        self._file = open(self.filename, 'bw')
-        self._file_completed = False
-
-        for x in range(self.num_chunks):
-            self.set_missing.add(x)
-
-        # Schedule a call to chunk selection algorithm
-        self._chunk_selction_handle = asyncio.get_event_loop().call_later(0.5, self.ChunkRequest)
-
-        logging.info("Created empty file and started chunk selection")
+        self._chunk_storage.SaveChunkData(chunk_id, data)
 
     def GetChunkData(self, chunk):
         """Get Data of indicated chunk"""
-        self._file.seek(chunk * GlobalParams.chunk_size)
-        return self._file.read(GlobalParams.chunk_size)
-
-    def InitValidFile(self):
-        """We have the file and it passes validation"""
-        self._file = open(self.filename, 'br')
-        self._file_completed = True
-
-        # Create set of pieces we have
-        for x in range(self.num_chunks):
-            self.set_have.add(x)
-
-        # Build have ranges
-        self.BuildHaveRanges()
-
-        logging.info("File integrity valid. Seeding the file!")
+        return self._chunk_storage.GetChunkData(chunk)
 
     def RemoveMember(self, member):
         """Remove indicated member from a swarm"""
@@ -239,7 +161,7 @@ class Swarm(object):
 
     def ReportData(self):
         """Report amount of data sent and received from each peer"""
-        logging.info("File download completed! Stats:")
+        logging.info("Data transfer stats:")
         for member in self._members:
             logging.info("   Member: {0};\tRX: {1} Bytes; TX: {2} Bytes"
                          .format(member, member._total_data_rx, member._total_data_tx))
@@ -251,5 +173,5 @@ class Swarm(object):
         for member in self._members:
             member.Disconnect()
 
-        # Close FD
-        self._file.close()
+        # Close chunk storage
+        self._chunk_storage.CloseStorage()

@@ -214,7 +214,8 @@ class SwarmMember(object):
         # Place integrity checking here once ready
         
         # Save data to file
-        self._swarm.SaveVerifiedData(msg_data.start_chunk, msg_data.end_chunk, msg_data.data)
+        # TODO: Hack. now taking one chunk only
+        self._swarm.SaveVerifiedData(msg_data.start_chunk, msg_data.data)
 
         # Send ack to peer
         msg_ack = MsgAck.MsgAck()
