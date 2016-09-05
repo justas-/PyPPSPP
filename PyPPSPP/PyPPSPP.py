@@ -44,8 +44,8 @@ def main(argv):
         elif opt in ("--live-src"):
             live_src = True
 
-    logging.info("PPSPP Parameters:\n\tTracker: {0};\n\tFilename: {1};\n\tFilesize: {2}B;\n\tSwarm: {3};\n\tLive: {4};"
-                 .format(trackerip, filename, filesize, swarmid, live))
+    logging.info("PPSPP Parameters:\n\tTracker: {0};\n\tFilename: {1};\n\tFilesize: {2}B;\n\tSwarm: {3};\n\tLive: {4};\n\tLive Source: {5};"
+                 .format(trackerip, filename, filesize, swarmid, live, live_src))
 
     # Start minimalistic event loop
     loop = asyncio.get_event_loop()

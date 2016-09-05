@@ -92,13 +92,16 @@ class MemoryChunkStorage(AbstractChunkStorage):
         while data_packed < all_data:
             if all_data - data_packed > GlobalParams.chunk_size:
                 # We have enough data for a full packet
-                packs.append([msg_bytes[data_packed:data_packed+GlobalParams.chunk_size]])
+                pack = bytearray()
+                pack.extend(msg_bytes[data_packed:data_packed+GlobalParams.chunk_size])
+                packs.append(pack)
                 data_packed += GlobalParams.chunk_size
             else:
                 # Make last pack by extendig it with zeros
-                lastp = msg_bytes[data_packed:]
-                lastp[len(lastp):] = (GlobalParams.chunk_size - len(lastp)) * bytes([0])
-                packs.append(lastp)
+                last_pack = bytearray()
+                last_pack.extend(msg_bytes[data_packed:])
+                last_pack.extend((GlobalParams.chunk_size - len(last_pack)) * bytes([0]))
+                packs.append(last_pack)
                 data_packed = all_data
 
         # Inject into system
@@ -106,6 +109,7 @@ class MemoryChunkStorage(AbstractChunkStorage):
         for pack in packs:
             self._last_inject_id += 1
             self._chunks[self._last_inject_id] = pack
+            self._swarm.set_have.add(self._last_inject_id)
         last_ch = self._last_inject_id
 
         self.BuildHaveRanges()

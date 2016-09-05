@@ -20,12 +20,12 @@ class MsgData(object):
     def BuildBinaryMessage(self):
         """Build bytearray of the message"""
         wb = bytearray()
-        wb[0:] = pack('>cIIQ', 
+        wb.extend(pack('>cIIQ', 
                       bytes([MsgTypes.DATA]), 
                       self.start_chunk, 
                       self.end_chunk, 
-                      self.timestamp)
-        wb[len(wb):] = self.data
+                      self.timestamp))
+        wb.extend(self.data)
 
         return wb
 

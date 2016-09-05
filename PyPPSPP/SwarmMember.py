@@ -191,8 +191,18 @@ class SwarmMember(object):
                 # TODO: Verify that our Python knows how to validate given hash type
                 self.remote_channel = msg_handshake.their_channel
                 self.hash_type = msg_handshake.merkle_tree_hash_func
-                self.chunk_addressing_method = msg_handshake.chunk_addressing_method
-                self.chunk_size = msg_handshake.chunk_size
+                
+                # Verify that we can understand each other
+                if msg_handshake.chunk_addressing_method != 2:
+                    raise NotImplementedError("Not supported chunk addressing method!")
+                else:
+                    self.chunk_addressing_method = msg_handshake.chunk_addressing_method
+                
+                if msg_handshake.chunk_size != 1024:
+                    raise NotImplementedError("Not standard chunk size!")
+                else:
+                    self.chunk_size = msg_handshake.chunk_size
+
                 self.is_init = True
                 logging.info("Received reply HANDSHAKE and initialized the channel")
 
