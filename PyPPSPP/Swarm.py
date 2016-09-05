@@ -44,7 +44,7 @@ class Swarm(object):
         if self.live:
             self._chunk_storage = MemoryChunkStorage(self)
             self._chunk_storage.Initialize(self.live_src)
-            if live_src != False:
+            if live_src == False:
                 self.StartChunkRequesting()
         else:
             self._chunk_storage = FileChunkStorage(self)
@@ -124,9 +124,10 @@ class Swarm(object):
         """Implements Chunks selection/request algorith"""
         
         num_missing = len(self.set_missing)
-        logging.info("Running chunks selection algorithm. Num missing: {0}".format(num_missing))
+        logging.info("Running chunks selection algorithm. Live: {0}; Num missing: {1}"
+                     .format(self.live, num_missing))
 
-        if num_missing == 0:
+        if num_missing == 0 and self.live == False:
             logging.info("All chunks onboard. Not rescheduling selection alg")
             return
 

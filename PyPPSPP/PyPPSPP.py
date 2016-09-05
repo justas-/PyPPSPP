@@ -17,11 +17,12 @@ logging.info ("PyPPSPP starting")
 def main(argv):
     # TODO: Move whatever possible to tracker
     # Leave here just download directory
-    trackerip = '127.0.0.1'      
+    #trackerip = '127.0.0.1'      
+    trackerip = '10.51.32.121'
     filename = 'test10MB-.bin'
     swarmid = '87a5e6618b2af6f92854eb83e2664d09af7db138'
     filesize = 10485788
-    live = False
+    live = True
     live_src = False
 
     try:

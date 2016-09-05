@@ -89,14 +89,13 @@ class SwarmMember(object):
         self.SendAndAccount(hs)
         self.is_hs_sent = True
 
-    def SendReplyHandshake(self, msg_handshake):
+    def SendReplyHandshake(self):
         """Reply with a handshake when remote peer is connecting to us"""
 
         hs = MsgHandshake.MsgHandshake()
         hs.swarm = self._swarm.swarm_id
         bm = hs.BuildBinaryMessage()
 
-        self.remote_channel = msg_handshake.their_channel
         self.local_channel = random.randint(1, 65535)
         
         # Create a full HANDSHAKE message
@@ -185,30 +184,19 @@ class SwarmMember(object):
                     self._sending_handle.cancel()
                     self._sending_handle = None
                 self._swarm.RemoveMember(self)
+
             elif self.is_hs_sent == True:
                 # This is reply to our HS
-                # TODO: for now just care about channel numbers
-                # TODO: Verify that our Python knows how to validate given hash type
-                self.remote_channel = msg_handshake.their_channel
-                self.hash_type = msg_handshake.merkle_tree_hash_func
-                
-                # Verify that we can understand each other
-                if msg_handshake.chunk_addressing_method != 2:
-                    raise NotImplementedError("Not supported chunk addressing method!")
-                else:
-                    self.chunk_addressing_method = msg_handshake.chunk_addressing_method
-                
-                if msg_handshake.chunk_size != 1024:
-                    raise NotImplementedError("Not standard chunk size!")
-                else:
-                    self.chunk_size = msg_handshake.chunk_size
-
+                # TODO: Catch the exception here and let the peer object die...
+                self.SetPeerParameters(msg_handshake)
                 self.is_init = True
                 logging.info("Received reply HANDSHAKE and initialized the channel")
 
             elif self.is_hs_sent == False:
                 # This is remote peer initiating connection to us
-                self.SendReplyHandshake(msg_handshake)
+                # TODO: Catch the exception here and let the peer object die...
+                self.SetPeerParameters(msg_handshake)
+                self.SendReplyHandshake()
                 self.is_init = True
                 logging.info("Received init HANDSHAKE. Replied and initialzed the channel")
 
@@ -217,6 +205,15 @@ class SwarmMember(object):
         logging.info("Handling Have: {0}".format(msg_have))
         for i in range(msg_have.start_chunk, msg_have.end_chunk+1):
             self.set_have.add(i)
+
+            # Special handling for live swarms
+            if self._swarm.live:
+                if i in self._swarm.set_have:
+                    # Do nothing if I have the advertised chunk
+                    pass
+                else:
+                    # There is a chunk somebody have and I don't -> add to missing set
+                    self._swarm.set_missing.add(i)
 
     def HandleData(self, msg_data):
         """Handle the received data"""
@@ -287,6 +284,23 @@ class SwarmMember(object):
            self._sending_handle = asyncio.get_event_loop().call_soon(self.SendRequestedChunks) 
         
 #endregion
+
+    def SetPeerParameters(self, msg_handshake):
+        """Set Peer parameters as received in the HS message"""
+
+        self.remote_channel = msg_handshake.their_channel
+        self.hash_type = msg_handshake.merkle_tree_hash_func
+                
+        # Verify that we can understand each other
+        if msg_handshake.chunk_addressing_method != 2:
+            raise NotImplementedError("Not supported chunk addressing method!")
+        else:
+            self.chunk_addressing_method = msg_handshake.chunk_addressing_method
+                
+        if msg_handshake.chunk_size != 1024:
+            raise NotImplementedError("Not standard chunk size!")
+        else:
+            self.chunk_size = msg_handshake.chunk_size
 
     def SendRequestedChunks(self):
         """Send the requested chunks to the peer"""

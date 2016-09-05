@@ -52,22 +52,24 @@ class MemoryChunkStorage(AbstractChunkStorage):
             return None
 
     def SaveChunkData(self, chunk_id, data):
+        """Save given data to the memory backed storage"""
         if self._is_source:
             # We are not saving in source mode
-            raise Exception
+            raise AssertionError("Saving received data in live source mode!")
+        
+        # We are relay - we can save this data
+        if chunk_id in self._chunks.keys():
+            # TODO: Log duplicate data
+            return
         else:
-            if chunk_id in self._chunks.keys():
-                # TODO: Log duplicate data
-                return
-            else:
-                self._chunks[chunk_id] = data
-                self.BuildHaveRanges()
-                self._swarm.SendHaveToMembers() # TODO: Every time?
+            self._chunks[chunk_id] = data
+            self._swarm.set_have.add(chunk_id)
+            self.BuildHaveRanges()
+            self._swarm.SendHaveToMembers() # TODO: Every time?
 
-        if self._is_source == False:
-            # If we are not source - we need to unframe data as well
+            # If we are not source - we need to rebuild AV packets
             for x in self._chunks.keys():
-                if x < self._last_framed:
+                if x < self._next_frame:
                     # This chunk is already framed
                     continue
                 if x == self._next_frame:
@@ -142,4 +144,5 @@ class MemoryChunkStorage(AbstractChunkStorage):
     def DataFramed(self, data):
         """Called by framer once data arrives"""
         av_data = pickle.loads(data)
-        logging.info("Got AV data!")
+        logging.info("Got AV data! Seq: {0}; Video size: {1}; Audio size: {2}"
+                     .format(av_data['id'], len(av_data['vd']), len(av_data['ad'])))
