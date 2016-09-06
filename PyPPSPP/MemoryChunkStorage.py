@@ -96,11 +96,10 @@ class MemoryChunkStorage(AbstractChunkStorage):
             else:
                 last_known = max(self._swarm.set_missing)
 
-            self._log_remover += 1
-            if self._log_remover == 100:
+            if self._log_remover % 100 == 0:
                 logging.info("Saved chunk {0}; Num missing: {1}; Last known: {2}; Next to framer: {3};"
                              .format(chunk_id, len(self._swarm.set_missing), last_known, self._next_frame))
-                self._log_remover = 0
+                self._log_remover += 1
 
     def ContentGenerated(self, data):
         # Pickle audio and video data
@@ -175,9 +174,7 @@ class MemoryChunkStorage(AbstractChunkStorage):
     def DataFramed(self, data):
         """Called by framer once data arrives"""
         av_data = pickle.loads(data)
-        self._av_log_remover += 1
-
-        if self._av_log_remover == 50:
+        if self._av_log_remover % 50 == 0:
             logging.info("Got AV data! Seq: {0}; Video size: {1}; Audio size: {2}"
                          .format(av_data['id'], len(av_data['vd']), len(av_data['ad'])))
-            self._av_log_remover = 0
+            self._av_log_remover += 1
