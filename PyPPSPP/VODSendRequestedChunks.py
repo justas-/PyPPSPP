@@ -42,7 +42,7 @@ class VODSendRequestedChunks(AbstractSendRequestedChunks):
             if self._counter % 100 == 0:
                 logging.info("Can serve: {0}/{1} chunks. Sent {2} chunk"
                             .format(len(set_to_send), len(self._swarm.set_have), chunk_to_send))
-                self._counter += 1
+            self._counter += 1
                 
 
             # If we have stuff to send - do not throttle

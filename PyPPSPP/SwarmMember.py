@@ -269,7 +269,7 @@ class SwarmMember(object):
         data[4:] = bytes([MT.REQUEST])
         data[5:] = req.BuildBinaryMessage()
 
-        logging.info("TX > To: {0}; Msg: {1}".format(self, req))
+        #logging.info("TX > To: {0}; Msg: {1}".format(self, req))
 
         self.SendAndAccount(data)
         self._swarm.set_requested = self._swarm.set_requested.union(request)
@@ -328,7 +328,7 @@ class SwarmMember(object):
 
         for msg in self._outbox:
             msg_bin = msg.BuildBinaryMessage()
-            logging.info("Outbox: {0}".format(msg))
+            #logging.info("Outbox: {0}".format(msg))
             data[len(data):] = msg_bin
             
         self._outbox.clear()
