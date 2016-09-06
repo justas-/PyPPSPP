@@ -67,6 +67,6 @@ class MessagesParser(object):
             if message is None:
                 logging.info("Unknown type {0} !!!".format(type))
 
-            logging.info("Received: {0}".format(message))
+            #logging.info("Received: {0}".format(message))
 
         return messages

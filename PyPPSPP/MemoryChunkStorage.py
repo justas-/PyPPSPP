@@ -22,6 +22,7 @@ class MemoryChunkStorage(AbstractChunkStorage):
         self._cg = None
         self._is_source = False
         self._last_inject_id = 0
+        self._last_discard_id = 0
         
         self._framer = None   # Frame from network data to A/V frames
         self._next_frame = 1  # Id of the next chunk that should be fed to framer
@@ -116,14 +117,20 @@ class MemoryChunkStorage(AbstractChunkStorage):
 
         self.BuildHaveRanges()
 
-        logging.info("Injected into system {0} chunks ({1}-{2})"
-                     .format(len(packs), first_ch, last_ch))
+        #logging.info("Injected into system {0} chunks ({1}-{2})"
+        #             .format(len(packs), first_ch, last_ch))
         
         self._swarm.SendHaveToMembers()
 
     def BuildHaveRanges(self):
         """Update have ranges based on the content in Memory storage"""
         self._swarm._have_ranges.clear()
+
+        # Small optimization for source of live streaming
+        if self._swarm.live and self._swarm.live_src:
+            self._swarm._have_ranges.append(
+                (self._last_discard_id + 1, self._last_inject_id))
+            return
 
         present_chunks = list(self._chunks.keys())
         in_range = False

@@ -13,6 +13,8 @@ from Messages import *
 from Messages.MessageTypes import MsgTypes as MT
 from MessagesParser import MessagesParser
 from GlobalParams import GlobalParams
+from OfflineSendRequestedChunks import OfflineSendRequestedChunks
+from VODSendRequestedChunks import VODSendRequestedChunks
 
 class SwarmMember(object):
     """A class used to represent member in the swarm"""
@@ -49,13 +51,20 @@ class SwarmMember(object):
         self.set_have = set()       # What peer has
         self.set_requested = set()  # What peer requested
         self.set_sent = set()       # What chunks are sent but not ACK. After ACK they are removed
-        self._outstanding_backoff = False
 
         self.unverified_data = []   # Keep all unverified messages
 
         # Outbox to stuff all reply messages into one datagram
         self._outbox = deque()
 
+        # Chunk sending
+        self._chunk_sending_alg =  None
+        if self._swarm.live:
+            self._chunk_sending_alg = VODSendRequestedChunks(
+                self._swarm, self)
+        else:
+            self._chunk_sending_alg = OfflineSendRequestedChunks(
+                self._swarm, self)
         self._sending_handle = None
 
     def SendHandshake(self):
@@ -202,7 +211,7 @@ class SwarmMember(object):
 
     def HandleHave(self, msg_have):
         """Update the local have map"""
-        logging.info("Handling Have: {0}".format(msg_have))
+        #logging.info("Handling Have: {0}".format(msg_have))
         for i in range(msg_have.start_chunk, msg_have.end_chunk+1):
             self.set_have.add(i)
 
@@ -304,50 +313,7 @@ class SwarmMember(object):
 
     def SendRequestedChunks(self):
         """Send the requested chunks to the peer"""
-        set_to_send = (self._swarm.set_have & self.set_requested) - self.set_sent
-        outstanding_len = len(set_to_send)
-
-        if outstanding_len > 0:
-            # We have stuff to send - all is fine
-            chunk_to_send = min(set_to_send)
-       
-            data = self._swarm.GetChunkData(chunk_to_send)
-        
-            md = MsgData.MsgData(self.chunk_size, self.chunk_addressing_method)
-            md.start_chunk = chunk_to_send
-            md.end_chunk = chunk_to_send
-            md.data = data
-            md.timestamp = int((time.time() * 1000000))
-
-            mdata_bin = bytearray()
-            mdata_bin[0:4] = struct.pack('>I', self.remote_channel)
-            mdata_bin[4:] = md.BuildBinaryMessage()
-
-            self.SendAndAccount(mdata_bin)
-            self.set_sent.add(chunk_to_send)
-
-            logging.info("Can serve: {0}/{1} chunks. Sent {2} chunk"
-                         .format(len(set_to_send), len(self._swarm.set_have), chunk_to_send))
-
-            # TODO: Here will live LEDBAT and delay calculation
-            self._sending_handle = asyncio.get_event_loop().call_later(0.005, self.SendRequestedChunks)
-        else:
-            # We have sent everything, now check if we need to resend
-            if len(self._swarm.set_have - self.set_requested) != 0:
-                # There are pieces in need of resending
-                if self._outstanding_backoff == False:
-                    # Give 1 sec to receive ACKs in flight
-                    logging.info("In the end-of-sending backoff")
-                    self._outstanding_backoff = True
-                    self._sending_handle = asyncio.get_event_loop().call_later(1, self.SendRequestedChunks)
-                else:
-                    # Remove un-ACKed pieces from sent set and keep sending
-                    self.set_sent = self.set_sent - self.set_requested
-                    self._sending_handle = asyncio.get_event_loop().call_soon(self.SendRequestedChunks)
-            else:
-                # All I have == all peer has
-                # Not even gonna reschedule the sender :)
-                self._sending_handle = None
+        self._chunk_sending_alg.SendAndSchedule()
                 
     def ProcessOutbox(self):
         """Binarify and send all messages in the outbox"""
