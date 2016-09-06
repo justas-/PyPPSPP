@@ -25,6 +25,9 @@
     <Compile Include="AbstractChunkStorage.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="AbstractSendRequestedChunks.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="ContentConsumer.py">
       <SubType>Code</SubType>
     </Compile>
@@ -82,6 +85,9 @@
     <Compile Include="Messages\__init__.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="OfflineSendRequestedChunks.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="PeerProtocol.py">
       <SubType>Code</SubType>
     </Compile>
@@ -96,6 +102,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="TrackerClientProtocol.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="VODSendRequestedChunks.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="__init__.py">
