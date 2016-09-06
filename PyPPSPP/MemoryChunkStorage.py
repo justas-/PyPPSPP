@@ -26,6 +26,9 @@ class MemoryChunkStorage(AbstractChunkStorage):
         self._framer = None   # Frame from network data to A/V frames
         self._next_frame = 1  # Id of the next chunk that should be fed to framer
 
+        self._log_remover = 0
+        self._av_log_remover = 0
+
     def Initialize(self, is_source):
         """Initialize In Memory storage"""
 
@@ -37,7 +40,7 @@ class MemoryChunkStorage(AbstractChunkStorage):
                 0)
             self._cg.StartGenerating()
         else:
-            self._framer = Framer(self.DataFramed)
+            self._framer = Framer(self.DataFramed, av_framer=True)
 
     def CloseStorage(self):
         self._chunks.clear()
@@ -59,23 +62,44 @@ class MemoryChunkStorage(AbstractChunkStorage):
         
         # We are relay - we can save this data
         if chunk_id in self._chunks.keys():
-            # TODO: Log duplicate data
+            logging.info("Received duplicate data. Chunk {0} is already known".format(chunk_id))
             return
         else:
             self._chunks[chunk_id] = data
+            self._swarm.set_missing.remove(chunk_id)
             self._swarm.set_have.add(chunk_id)
             self.BuildHaveRanges()
-            self._swarm.SendHaveToMembers() # TODO: Every time?
+            #self._swarm.SendHaveToMembers() # TODO: Every time?
 
             # If we are not source - we need to rebuild AV packets
-            for x in self._chunks.keys():
-                if x < self._next_frame:
-                    # This chunk is already framed
-                    continue
-                if x == self._next_frame:
-                    # Feed the framer if this is what we need
-                    self._framer.DataReceived(self._chunks[x])
-                    self._next_frame += 1
+            # First assume that we have no holes in sequence:
+            if chunk_id == self._next_frame:
+                # Inject data into framer
+                self._framer.DataReceived(self._chunks[chunk_id])
+
+                self._next_frame += 1
+            else:
+                # Handle hole in the sequence
+                for x in self._chunks.keys():
+                    if x < self._next_frame:
+                        # This chunk is already framed
+                        continue
+                    if x == self._next_frame:
+                        # Feed the framer if this is what we need
+                        self._framer.DataReceived(self._chunks[x])
+                        self._next_frame += 1
+
+            last_known = 0
+            if len(self._swarm.set_missing) == 0:
+                last_known = max(self._swarm.set_have)
+            else:
+                last_known = max(self._swarm.set_missing)
+
+            self._log_remover += 1
+            if self._log_remover == 100:
+                logging.info("Saved chunk {0}; Num missing: {1}; Last known: {2}; Next to framer: {3};"
+                             .format(chunk_id, len(self._swarm.set_missing), last_known, self._next_frame))
+                self._log_remover = 0
 
     def ContentGenerated(self, data):
         # Pickle audio and video data
@@ -125,24 +149,29 @@ class MemoryChunkStorage(AbstractChunkStorage):
         """Update have ranges based on the content in Memory storage"""
         self._swarm._have_ranges.clear()
 
-        present_chunks = list(self._chunks.keys())
-        in_range = False
-        x_min = 0
+        #present_chunks = list(self._chunks.keys())
+        #in_range = False
+        #x_min = 0
 
-        for x in present_chunks:
-            if in_range == False:
-                x_min = x
-                in_range = True
+        #for x in present_chunks:
+        #    if in_range == False:
+        #        x_min = x
+        #        in_range = True
 
-            if in_range:
-                if x + 1 in present_chunks:
-                    continue
-                else:
-                    self._swarm._have_ranges.append((x_min, x))
-                    in_range = False
+        #    if in_range:
+        #        if x + 1 in present_chunks:
+        #            continue
+        #        else:
+        #            self._swarm._have_ranges.append((x_min, x))
+        #            in_range = False
+        self._swarm._have_ranges.append((min(self._swarm.set_have), max(self._swarm.set_have)))
 
     def DataFramed(self, data):
         """Called by framer once data arrives"""
         av_data = pickle.loads(data)
-        logging.info("Got AV data! Seq: {0}; Video size: {1}; Audio size: {2}"
-                     .format(av_data['id'], len(av_data['vd']), len(av_data['ad'])))
+        self._av_log_remover += 1
+
+        if self._av_log_remover == 50:
+            logging.info("Got AV data! Seq: {0}; Video size: {1}; Audio size: {2}"
+                         .format(av_data['id'], len(av_data['vd']), len(av_data['ad'])))
+            self._av_log_remover = 0

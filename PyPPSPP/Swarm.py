@@ -86,15 +86,15 @@ class Swarm(object):
            the chunk specification of its biggest interval
            covering the chunk"""
 
-        min_chunk = start_chunk - 1
-        max_chunk = end_chunk + 1
-
+        min_chunk = 0
+        max_chunk = 0
+                
         while min_chunk >= 0 and min_chunk in self.set_have:
             min_chunk = min_chunk - 1
         min_chunk = min_chunk + 1
 
-        max_have = max(self.set_have)
-        while max_chunk <= max_have and max_chunk in self.set_have:
+        max_chunk = min_chunk
+        while max_chunk in self.set_have:
             max_chunk = max_chunk + 1
         max_chunk = max_chunk - 1
 
@@ -124,8 +124,8 @@ class Swarm(object):
         """Implements Chunks selection/request algorith"""
         
         num_missing = len(self.set_missing)
-        logging.info("Running chunks selection algorithm. Live: {0}; Num missing: {1}"
-                     .format(self.live, num_missing))
+        #logging.info("Running chunks selection algorithm. Live: {0}; Num missing: {1}"
+        #             .format(self.live, num_missing))
 
         if num_missing == 0 and self.live == False:
             logging.info("All chunks onboard. Not rescheduling selection alg")
@@ -141,8 +141,8 @@ class Swarm(object):
         for member in self._members:
             set_i_need = member.set_have - self.set_have - self.set_requested
             len_i_need = len(set_i_need)
-            logging.info("Need {0} chunks from member {1}"
-                         .format(len_i_need, member))
+            #logging.info("Need {0} chunks from member {1}"
+            #             .format(len_i_need, member))
             if len_i_need > 0:
                 member.RequestChunks(set_i_need)
 
