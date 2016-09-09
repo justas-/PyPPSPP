@@ -30,6 +30,9 @@ class MemoryChunkStorage(AbstractChunkStorage):
         self._log_remover = 0
         self._av_log_remover = 0
 
+        self._have_built = False
+        self._have_keys = {}
+
     def Initialize(self, is_source):
         """Initialize In Memory storage"""
 
@@ -69,7 +72,8 @@ class MemoryChunkStorage(AbstractChunkStorage):
             self._chunks[chunk_id] = data
             self._swarm.set_missing.remove(chunk_id)
             self._swarm.set_have.add(chunk_id)
-            self.BuildHaveRanges()
+            self.ExtendBuild(chunk_id)
+            #self.BuildHaveRanges()
             #self._swarm.SendHaveToMembers() # TODO: Every time?
 
             # If we are not source - we need to rebuild AV packets
@@ -97,9 +101,34 @@ class MemoryChunkStorage(AbstractChunkStorage):
                 last_known = max(self._swarm.set_missing)
 
             if self._log_remover % 100 == 0:
-                logging.info("Saved chunk {0}; Num missing: {1}; Last known: {2}; Next to framer: {3};"
-                             .format(chunk_id, len(self._swarm.set_missing), last_known, self._next_frame))
+                logging.info("Saved chunk {0}; Num missing: {1}; Last known: {2}; Next to framer: {3}; Nr: {4}"
+                             .format(chunk_id, len(self._swarm.set_missing), last_known, self._next_frame, self._swarm._have_ranges))
             self._log_remover += 1
+
+    def ExtendBuild(self, chunk_id):
+        """Special case for live consumer"""
+
+        if self._have_built == False:
+            self._swarm._have_ranges.append((chunk_id, chunk_id))
+            self._have_built = True
+            return
+
+        k = 0
+        num_ranges = len(self._swarm._have_ranges)
+
+        for range in self._swarm._have_ranges:
+            if range[1] == chunk_id - 1:
+                # Extend current range if we have next
+                self._swarm._have_ranges[k] = (range[0], chunk_id)
+                return
+            else:
+                if k + 1 == num_ranges:
+                    # Start a new range
+                    self._swarm._have_ranges.append((chunk_id, chunk_id))
+                    return
+                else:
+                    # Continue
+                    k += 1
 
     def ContentGenerated(self, data):
         # Pickle audio and video data
@@ -147,29 +176,29 @@ class MemoryChunkStorage(AbstractChunkStorage):
 
     def BuildHaveRanges(self):
         """Update have ranges based on the content in Memory storage"""
-        self._swarm._have_ranges.clear()
-
         # Small optimization for source of live streaming
         if self._swarm.live and self._swarm.live_src:
+            self._swarm._have_ranges.clear()
             self._swarm._have_ranges.append(
                 (self._last_discard_id + 1, self._last_inject_id))
             return
 
-        present_chunks = list(self._chunks.keys())
-        in_range = False
-        x_min = 0
 
-        for x in present_chunks:
-            if in_range == False:
-                x_min = x
-                in_range = True
+        #present_chunks = list(self._chunks.keys())
+        #in_range = False
+        #x_min = 0
 
-            if in_range:
-                if x + 1 in present_chunks:
-                    continue
-                else:
-                    self._swarm._have_ranges.append((x_min, x))
-                    in_range = False
+        #for x in present_chunks:
+        #    if in_range == False:
+        #        x_min = x
+        #        in_range = True
+        #
+        #    if in_range:
+        #        if x + 1 in present_chunks:
+        #            continue
+        #        else:
+        #            self._swarm._have_ranges.append((x_min, x))
+        #            in_range = False
 
     def DataFramed(self, data):
         """Called by framer once data arrives"""

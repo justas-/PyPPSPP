@@ -41,6 +41,9 @@ class Swarm(object):
         self._have_ranges = []          # List of ranges of chunks we have verified
         self._last_num_missing = 0
 
+        self._data_chunks_rx = 0        # Number of data chunks received overall
+
+
         if self.live:
             self._chunk_storage = MemoryChunkStorage(self)
             self._chunk_storage.Initialize(self.live_src)
@@ -156,6 +159,7 @@ class Swarm(object):
 
     def SaveVerifiedData(self, chunk_id, data):
         """Called when we receive data from a peer and validate the integrity"""
+        self._data_chunks_rx += 1
         self._chunk_storage.SaveChunkData(chunk_id, data)
 
     def SendHaveToMembers(self):
@@ -195,6 +199,7 @@ class Swarm(object):
     def CloseSwarm(self):
         """Close swarm nicely"""
         logging.info("Request to close swarm nicely!")
+        self.ReportData()
         # Send departure handshakes
         for member in self._members:
             member.Disconnect()

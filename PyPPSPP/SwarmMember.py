@@ -50,6 +50,13 @@ class SwarmMember(object):
         self._total_data_tx = 0
         self._total_data_rx = 0
 
+        # Number of data messages received
+        self._data_msg_rx = 0
+
+        # Pending ACK functionality
+        self._pending_ack_min = None
+        self._pending_ack_max = None
+
         # Chunk-maps
         self.set_have = set()       # What peer has
         self.set_requested = set()  # What peer requested
@@ -234,18 +241,46 @@ class SwarmMember(object):
         """Handle the received data"""
         # Place integrity checking here once ready
         
+        # Save for stats
+        self._data_msg_rx += 1
+
         # Save data to file
         # TODO: Hack. now taking one chunk only
         self._swarm.SaveVerifiedData(msg_data.start_chunk, msg_data.data)
 
+        # Pending ACK funcionality
+        
+        # Set start of range
+        if self._pending_ack_min == None:
+            self._pending_ack_min = msg_data.start_chunk
+            self._pending_ack_max = msg_data.start_chunk
+            return
+        
+        # Keep increasing until we have a break or reach 10
+        if self._pending_ack_max == msg_data.start_chunk - 1:
+            # Keep increasing
+            self._pending_ack_max = msg_data.start_chunk
+        else:
+            # We have a break - send ack
+            self.BuildAck(self._pending_ack_min, self._pending_ack_max, msg_data.timestamp)
+            self._pending_ack_min = msg_data.start_chunk
+            self._pending_ack_max = msg_data.start_chunk
+            return
+
+        if self._data_msg_rx % 10 == 0:
+            self.BuildAck(self._pending_ack_min, self._pending_ack_max, msg_data.timestamp)
+            self._pending_ack_min = None
+            self._pending_ack_max == None
+            
+    def BuildAck(self, min, max, ts):
         # Send ack to peer
         msg_ack = MsgAck.MsgAck()
-        (min_ch, max_ch) = self._swarm.GetAckRange(msg_data.start_chunk, msg_data.end_chunk)
+        (min_ch, max_ch) = self._swarm.GetAckRange(min, max)
         msg_ack.start_chunk = min_ch
         msg_ack.end_chunk = max_ch
         
         # As described in [RFC7574] 8.7 && [RFC6817]
-        delay = int((time.time() * 1000000) - msg_data.timestamp)
+        delay = int((time.time() * 1000000) - ts)
         msg_ack.one_way_delay_sample = delay
 
         self._outbox.append(msg_ack)
