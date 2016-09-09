@@ -43,6 +43,8 @@ class Swarm(object):
 
         self._data_chunks_rx = 0        # Number of data chunks received overall
 
+        self._next_peer_num = 1
+
 
         if self.live:
             self._chunk_storage = MemoryChunkStorage(self)
@@ -73,6 +75,10 @@ class Swarm(object):
 
         m = SwarmMember(self, ip_address, port)
         self._members.append(m)
+
+        m._peer_num = self._next_peer_num
+        self._next_peer_num += 1
+
         return m
 
     def GetMemberByChannel(self, channel):

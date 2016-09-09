@@ -32,6 +32,9 @@ class SwarmMember(object):
         self.local_channel = 0
         self.remote_channel = 0
 
+        # Peer number for easy ID
+        self._peer_num = None
+
         # Chunk parameters and hash parameters
         # Will be overwritten by Handshake msg
         self.chunk_addressing_method = None
@@ -224,7 +227,10 @@ class SwarmMember(object):
 
     def HandleHave(self, msg_have):
         """Update the local have map"""
-        #logging.info("Handling Have: {0}".format(msg_have))
+        
+        if self._logger.isEnabledFor(logging.INFO):
+            logging.info("FROM > {0} > HAVE: {0}".format(self._peer_num, msg_have))
+        
         for i in range(msg_have.start_chunk, msg_have.end_chunk+1):
             self.set_have.add(i)
 
@@ -310,7 +316,8 @@ class SwarmMember(object):
         data[4:] = bytes([MT.REQUEST])
         data[5:] = req.BuildBinaryMessage()
 
-        #logging.info("TX > To: {0}; Msg: {1}".format(self, req))
+        if self._logger.isEnabledFor(logging.INFO):
+            logging.info("TO > {0} > REQUEST: {0}".format(self._peer_num, req))
 
         self.SendAndAccount(data)
         self._swarm.set_requested = self._swarm.set_requested.union(request)
@@ -328,6 +335,9 @@ class SwarmMember(object):
         """Handle incomming REQUEST message"""
         for x in range(msg_request.start_chunk, msg_request.end_chunk + 1):
             self.set_requested.add(x)
+
+        if self._logger.isEnabledFor(logging.INFO):
+            logging.info("FROM > {0} > REQUEST: {0}".format(self._peer_num, msg_request))
 
         # Try to send some data
         if self._sending_handle == None:
