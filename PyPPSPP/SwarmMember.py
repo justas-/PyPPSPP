@@ -21,6 +21,9 @@ class SwarmMember(object):
 
     def __init__(self, swarm, ip_address, udp_port = 6778):
         """Init object representing the remote peer"""
+        # Logger for fast access
+        self._logger = logging.getLogger()
+
         self._swarm = swarm
         self.ip_address = ip_address
         self.udp_port = udp_port
@@ -128,7 +131,10 @@ class SwarmMember(object):
         self.SendAndAccount(hs)
 
     def SendAndAccount(self, binary_data):
-        logging.debug("!! Sending BIN data: {0}".format(binascii.hexlify(binary_data)))
+        # Keep this check!
+        if self._logger.isEnabledFor(logging.DEBUG):
+            logging.debug("!! Sending BIN data: {0}".format(binascii.hexlify(binary_data)))
+
         self._swarm.SendData(self.ip_address, self.udp_port, binary_data)
         self._total_data_tx = self._total_data_tx + len(binary_data)
         

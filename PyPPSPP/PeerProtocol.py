@@ -13,6 +13,7 @@ class PeerProtocol(object):
     def __init__(self):
         self.loop = asyncio.get_event_loop()
         self._num_msg_rx = 0
+        self._logger = logging.getLogger()
 
     def connection_made(self, transport):
         # Called on acquiring the socket
@@ -26,8 +27,10 @@ class PeerProtocol(object):
     def datagram_received(self, data, addr):
         # Called on incomming datagram
         self._num_msg_rx = self._num_msg_rx + 1
-        logging.debug("Datagram received ({0}). From: {1}; Len: {2}B"
-                     .format(self._num_msg_rx, addr, len(data)))
+        # Keep this check
+        if self._logger.isEnabledFor(logging.DEBUG):
+            logging.debug("Datagram received ({0}). From: {1}; Len: {2}B"
+                        .format(self._num_msg_rx, addr, len(data)))
 
         # Get the channel number
         my_channel = struct.unpack('>I', data[0:4])[0]
