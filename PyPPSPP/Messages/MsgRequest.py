@@ -26,5 +26,5 @@ class MsgRequest(object):
     def __str__(self):
         return str("[REQUEST] Start: {0}; End: {1}".format(self.start_chunk, self.end_chunk))
 
-    def __rept(self):
-        return self__str__()
+    def __repr__(self):
+        return self.__str__()
