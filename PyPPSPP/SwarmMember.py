@@ -66,6 +66,7 @@ class SwarmMember(object):
         self.set_sent = set()       # What chunks are sent but not ACK. After ACK they are removed
 
         self.unverified_data = []   # Keep all unverified messages
+        self._has_complete_data = False     # Peer has full content (i.e. VOD) [RFC7574] § 3.2
 
         # Outbox to stuff all reply messages into one datagram
         self._outbox = deque()
@@ -228,8 +229,8 @@ class SwarmMember(object):
     def HandleHave(self, msg_have):
         """Update the local have map"""
         
-        if self._logger.isEnabledFor(logging.INFO):
-            logging.info("FROM > {0} > HAVE: {0}".format(self._peer_num, msg_have))
+        if self._logger.isEnabledFor(logging.DEBUG):
+            logging.debug("FROM > {0} > HAVE: {1}".format(self._peer_num, msg_have))
         
         for i in range(msg_have.start_chunk, msg_have.end_chunk+1):
             self.set_have.add(i)
@@ -316,8 +317,8 @@ class SwarmMember(object):
         data[4:] = bytes([MT.REQUEST])
         data[5:] = req.BuildBinaryMessage()
 
-        if self._logger.isEnabledFor(logging.INFO):
-            logging.info("TO > {0} > REQUEST: {0}".format(self._peer_num, req))
+        if self._logger.isEnabledFor(logging.DEBUG):
+            logging.debug("TO > {0} > REQUEST: {1}".format(self._peer_num, req))
 
         self.SendAndAccount(data)
         self._swarm.set_requested = self._swarm.set_requested.union(request)
@@ -336,8 +337,8 @@ class SwarmMember(object):
         for x in range(msg_request.start_chunk, msg_request.end_chunk + 1):
             self.set_requested.add(x)
 
-        if self._logger.isEnabledFor(logging.INFO):
-            logging.info("FROM > {0} > REQUEST: {0}".format(self._peer_num, msg_request))
+        if self._logger.isEnabledFor(logging.DEBUG):
+            logging.debug("FROM > {0} > REQUEST: {1}".format(self._peer_num, msg_request))
 
         # Try to send some data
         if self._sending_handle == None:

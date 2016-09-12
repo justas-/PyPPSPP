@@ -27,7 +27,8 @@ class MemoryChunkStorage(AbstractChunkStorage):
         self._framer = None   # Frame from network data to A/V frames
         self._next_frame = 1  # Id of the next chunk that should be fed to framer
 
-        self._log_remover = 0
+        self._num_chunks_received = 0   # Number of all chunks received
+        self._num_unique_received = 0   # Number of unique chunks received
         self._av_log_remover = 0
 
         self._have_built = False
@@ -54,8 +55,7 @@ class MemoryChunkStorage(AbstractChunkStorage):
         if chunk in self._chunks.keys():
             return self._chunks[chunk]
         else:
-            logging.info("Received request for missing chunk: {0}"
-                         .format(chunk))
+            logging.info("Received request for missing chunk: {0}".format(chunk))
             return None
 
     def SaveChunkData(self, chunk_id, data):
@@ -63,18 +63,27 @@ class MemoryChunkStorage(AbstractChunkStorage):
         if self._is_source:
             # We are not saving in source mode
             raise AssertionError("Saving received data in live source mode!")
+
+        # Count all received
+        self._num_chunks_received += 1
         
         # We are relay - we can save this data
         if chunk_id in self._chunks.keys():
             logging.info("Received duplicate data. Chunk {0} is already known".format(chunk_id))
             return
         else:
+            # Count unique received
+            self._num_unique_received += 1
+
+            # Save and account
             self._chunks[chunk_id] = data
             self._swarm.set_missing.remove(chunk_id)
             self._swarm.set_have.add(chunk_id)
             self.ExtendBuild(chunk_id)
-            #self.BuildHaveRanges()
-            #self._swarm.SendHaveToMembers() # TODO: Every time?
+
+            # Send have ranges to other members every 20th chunk
+            if self._num_unique_received % 20 == 0:
+                self._swarm.SendHaveToMembers()
 
             # If we are not source - we need to rebuild AV packets
             # First assume that we have no holes in sequence:
@@ -94,16 +103,18 @@ class MemoryChunkStorage(AbstractChunkStorage):
                         self._framer.DataReceived(self._chunks[x])
                         self._next_frame += 1
 
-            last_known = 0
-            if len(self._swarm.set_missing) == 0:
-                last_known = max(self._swarm.set_have)
-            else:
-                last_known = max(self._swarm.set_missing)
+            # Print stats every 100'th chunk
+            if self._num_chunks_received % 100 == 0:
+                last_known = 0
+                len_missing = len(self._swarm.set_missing)
+                if len_missing == 0:
+                    last_known = max(self._swarm.set_have)
+                else:
+                    last_known = max(self._swarm.set_missing)
 
-            if self._log_remover % 100 == 0:
                 logging.info("Saved chunk {0}; Num missing: {1}; Last known: {2}; Next to framer: {3}; Nr: {4}"
-                             .format(chunk_id, len(self._swarm.set_missing), last_known, self._next_frame, self._swarm._have_ranges))
-            self._log_remover += 1
+                             .format(chunk_id, len_missing, last_known, self._next_frame, self._swarm._have_ranges))
+
 
     def ExtendBuild(self, chunk_id):
         """Special case for live consumer"""
