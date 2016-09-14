@@ -5,6 +5,7 @@ import asyncio
 
 from Messages import *
 from AbstractSendRequestedChunks import AbstractSendRequestedChunks
+from LEDBAT import LEDBAT
 
 class OfflineSendRequestedChunks(AbstractSendRequestedChunks):
     """Chunks sending algorithm for offline data sharing"""

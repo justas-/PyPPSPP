@@ -14,10 +14,9 @@ class VODSendRequestedChunks(AbstractSendRequestedChunks):
         return super().__init__(swarm, member)
 
     def SendAndSchedule(self):
-        #set_to_send = (self._swarm.set_have & self._member.set_requested) - self._member.set_sent
-        
-        # Allways send everything we have
-        set_to_send = self._swarm.set_have - self._member.set_sent
+        # Choose what to send
+        set_to_send = (self._swarm.set_have & self._member.set_requested) - self._member.set_sent
+        #set_to_send = self._swarm.set_have - self._member.set_sent
         outstanding_len = len(set_to_send)
 
         if outstanding_len > 0:

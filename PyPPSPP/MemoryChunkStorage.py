@@ -10,8 +10,6 @@ from AbstractChunkStorage import AbstractChunkStorage
 from GlobalParams import GlobalParams
 from Framer import Framer
 
-# TODO: Generating and injecting should be carved away from this one...
-
 class MemoryChunkStorage(AbstractChunkStorage):
     """Memory backed chunk storage"""
 
@@ -29,7 +27,6 @@ class MemoryChunkStorage(AbstractChunkStorage):
 
         self._num_chunks_received = 0   # Number of all chunks received
         self._num_unique_received = 0   # Number of unique chunks received
-        self._av_log_remover = 0
 
         self._have_built = False
         self._have_keys = {}
@@ -39,13 +36,6 @@ class MemoryChunkStorage(AbstractChunkStorage):
 
         if is_source == True:
             self._is_source = True
-            self._cg = ContentGenerator(
-                asyncio.get_event_loop(),
-                self.ContentGenerated,
-                0)
-            self._cg.StartGenerating()
-        else:
-            self._framer = Framer(self.DataFramed, av_framer=True)
 
     def CloseStorage(self):
         self._chunks.clear()
@@ -84,24 +74,6 @@ class MemoryChunkStorage(AbstractChunkStorage):
             # Send have ranges to other members every 20th chunk
             if self._num_unique_received % 20 == 0:
                 self._swarm.SendHaveToMembers()
-
-            # If we are not source - we need to rebuild AV packets
-            # First assume that we have no holes in sequence:
-            if chunk_id == self._next_frame:
-                # Inject data into framer
-                self._framer.DataReceived(self._chunks[chunk_id])
-
-                self._next_frame += 1
-            else:
-                # Handle hole in the sequence
-                for x in self._chunks.keys():
-                    if x < self._next_frame:
-                        # This chunk is already framed
-                        continue
-                    if x == self._next_frame:
-                        # Feed the framer if this is what we need
-                        self._framer.DataReceived(self._chunks[x])
-                        self._next_frame += 1
 
             # Print stats every 100'th chunk
             if self._num_chunks_received % 100 == 0:
@@ -179,10 +151,6 @@ class MemoryChunkStorage(AbstractChunkStorage):
         last_ch = self._last_inject_id
 
         self.BuildHaveRanges()
-
-        #logging.info("Injected into system {0} chunks ({1}-{2})"
-        #             .format(len(packs), first_ch, last_ch))
-        
         self._swarm.SendHaveToMembers()
 
     def BuildHaveRanges(self):
@@ -210,11 +178,3 @@ class MemoryChunkStorage(AbstractChunkStorage):
         #        else:
         #            self._swarm._have_ranges.append((x_min, x))
         #            in_range = False
-
-    def DataFramed(self, data):
-        """Called by framer once data arrives"""
-        av_data = pickle.loads(data)
-        if self._av_log_remover % 50 == 0:
-            logging.info("Got AV data! Seq: {0}; Video size: {1}; Audio size: {2}"
-                         .format(av_data['id'], len(av_data['vd']), len(av_data['ad'])))
-        self._av_log_remover += 1

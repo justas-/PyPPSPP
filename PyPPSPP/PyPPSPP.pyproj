@@ -40,6 +40,9 @@
     <Compile Include="GlobalParams.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="LEDBAT.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="MemoryChunkStorage.py">
       <SubType>Code</SubType>
     </Compile>

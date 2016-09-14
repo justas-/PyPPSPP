@@ -14,6 +14,8 @@ from Messages import *
 from AbstractChunkStorage import AbstractChunkStorage
 from MemoryChunkStorage import MemoryChunkStorage
 from FileChunkStorage import FileChunkStorage
+from ContentConsumer import ContentConsumer
+from ContentGenerator import ContentGenerator
 
 class Swarm(object):
     """A class used to represent a swarm in PPSPP"""
@@ -45,12 +47,26 @@ class Swarm(object):
 
         self._next_peer_num = 1
 
+        self._cont_consumer = None
+        self._cont_generator = None
 
         if self.live:
+            # Initialize in memory chunk storage
             self._chunk_storage = MemoryChunkStorage(self)
             self._chunk_storage.Initialize(self.live_src)
-            if live_src == False:
+
+            # Initialize live content generator
+            self._cont_generator = ContentGenerator()
+            self._cont_generator.add_on_generated_callback(self._chunk_storage.ContentGenerated)
+
+            if live_src:
+                # Start generating if source
+                self._cont_generator.start_generating()
+            else:
+                # Start requesting if not source
+                self._cont_consumer = ContentConsumer(self)
                 self.StartChunkRequesting()
+                self._cont_consumer.StartConsuming()
         else:
             self._chunk_storage = FileChunkStorage(self)
             self._chunk_storage.Initialize(
@@ -167,6 +183,8 @@ class Swarm(object):
         """Called when we receive data from a peer and validate the integrity"""
         self._data_chunks_rx += 1
         self._chunk_storage.SaveChunkData(chunk_id, data)
+        if self.live and not self.live_src:
+            self._cont_consumer.DataReceived(chunk_id, data)
 
     def SendHaveToMembers(self):
         """Send to members all information about chunks we have"""
