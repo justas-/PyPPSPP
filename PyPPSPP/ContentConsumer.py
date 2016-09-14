@@ -64,16 +64,14 @@ class ContentConsumer(object):
         av_data = None
         try:
             av_data = self._q.get(block = False)
-        except queue.Empty:
-            # Some day log missing read...
-            pass
-
-        # If we got something in queue - show details
-        if data != None:
             self._frames_consumed += 1
             if self._frames_consumed % 25 == 0:
                 logging.info("Got AV data! Seq: {0}; Video size: {1}; Audio size: {2}"
                          .format(av_data['id'], len(av_data['vd']), len(av_data['ad'])))
+
+        except queue.Empty:
+            # Some day log missing read...
+            pass
             
         # Reschedule the call
-        self._handle = self._loop.call_later(1 / self._fps, self._Consume)
+        self._handle = self._loop.call_later(1 / self._fps, self.__consume)

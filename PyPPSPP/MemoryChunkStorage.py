@@ -21,9 +21,6 @@ class MemoryChunkStorage(AbstractChunkStorage):
         self._is_source = False
         self._last_inject_id = 0
         self._last_discard_id = 0
-        
-        self._framer = None   # Frame from network data to A/V frames
-        self._next_frame = 1  # Id of the next chunk that should be fed to framer
 
         self._num_chunks_received = 0   # Number of all chunks received
         self._num_unique_received = 0   # Number of unique chunks received
@@ -84,8 +81,7 @@ class MemoryChunkStorage(AbstractChunkStorage):
                 else:
                     last_known = max(self._swarm.set_missing)
 
-                logging.info("Saved chunk {0}; Num missing: {1}; Last known: {2}; Next to framer: {3}; Nr: {4}"
-                             .format(chunk_id, len_missing, last_known, self._next_frame, self._swarm._have_ranges))
+                logging.info("Saved chunk {0}; Num missing: {1}; Last known: {2};".format(chunk_id, len_missing, last_known))
 
 
     def ExtendBuild(self, chunk_id):
