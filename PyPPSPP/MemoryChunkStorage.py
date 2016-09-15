@@ -66,10 +66,10 @@ class MemoryChunkStorage(AbstractChunkStorage):
             self._chunks[chunk_id] = data
             self._swarm.set_missing.remove(chunk_id)
             self._swarm.set_have.add(chunk_id)
-            self.ExtendBuild(chunk_id)
 
             # Send have ranges to other members every 20th chunk
-            if self._num_unique_received % 20 == 0:
+            if self._num_unique_received % 100 == 0:
+                self.BuildHaveRanges()
                 self._swarm.SendHaveToMembers()
 
             # Print stats every 100'th chunk
@@ -81,33 +81,8 @@ class MemoryChunkStorage(AbstractChunkStorage):
                 else:
                     last_known = max(self._swarm.set_missing)
 
-                logging.info("Saved chunk {0}; Num missing: {1}; Last known: {2};".format(chunk_id, len_missing, last_known))
-
-
-    def ExtendBuild(self, chunk_id):
-        """Special case for live consumer"""
-
-        if self._have_built == False:
-            self._swarm._have_ranges.append((chunk_id, chunk_id))
-            self._have_built = True
-            return
-
-        k = 0
-        num_ranges = len(self._swarm._have_ranges)
-
-        for range in self._swarm._have_ranges:
-            if range[1] == chunk_id - 1:
-                # Extend current range if we have next
-                self._swarm._have_ranges[k] = (range[0], chunk_id)
-                return
-            else:
-                if k + 1 == num_ranges:
-                    # Start a new range
-                    self._swarm._have_ranges.append((chunk_id, chunk_id))
-                    return
-                else:
-                    # Continue
-                    k += 1
+                logging.info("Saved chunk {0}; Num missing: {1}; Last known: {2}; Num have ranges: {3}"
+                             .format(chunk_id, len_missing, last_known, len(self._swarm._have_ranges)))
 
     def ContentGenerated(self, data):
         # Pickle audio and video data
@@ -146,31 +121,33 @@ class MemoryChunkStorage(AbstractChunkStorage):
             self._swarm.set_have.add(self._last_inject_id)
         last_ch = self._last_inject_id
 
-        self.BuildHaveRanges()
+        self.BuildHaveRangesLiveSrc()
         self._swarm.SendHaveToMembers()
 
+    def BuildHaveRangesLiveSrc(self):
+        # Build have ranges in Live Source
+        assert self._swarm.live and self._swarm.live_src
+        self._swarm._have_ranges.clear()
+        self._swarm._have_ranges.append((self._last_discard_id + 1, self._last_inject_id))
+    
     def BuildHaveRanges(self):
-        """Update have ranges based on the content in Memory storage"""
-        # Small optimization for source of live streaming
-        if self._swarm.live and self._swarm.live_src:
-            self._swarm._have_ranges.clear()
-            self._swarm._have_ranges.append(
-                (self._last_discard_id + 1, self._last_inject_id))
-            return
+        # Build live ranges in all other nodes
+        # TODO: Optimize this
+        present_chunks = list(self._chunks)
+        present_chunks.sort()
+        
+        self._swarm._have_ranges.clear()
 
-
-        #present_chunks = list(self._chunks.keys())
-        #in_range = False
-        #x_min = 0
-
-        #for x in present_chunks:
-        #    if in_range == False:
-        #        x_min = x
-        #        in_range = True
-        #
-        #    if in_range:
-        #        if x + 1 in present_chunks:
-        #            continue
-        #        else:
-        #            self._swarm._have_ranges.append((x_min, x))
-        #            in_range = False
+        in_range = False
+        x_min = 0
+        for x in present_chunks:
+            if in_range == False:
+                x_min = x
+                in_range = True
+        
+            if in_range:
+                if x + 1 in present_chunks:
+                    continue
+                else:
+                    self._swarm._have_ranges.append((x_min, x))
+                    in_range = False
