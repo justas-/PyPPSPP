@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>995bf44d-b813-475a-b315-c022513f8d15</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>PyPPSPP.py</StartupFile>
+    <StartupFile>LEDBBAT-TEST\ledbat-src.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -41,6 +41,15 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="LEDBAT.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="LEDBBAT-TEST\ledbat-sink.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="LEDBBAT-TEST\ledbat-src.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="LEDBBAT-TEST\__init__.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="MemoryChunkStorage.py">
@@ -116,6 +125,7 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Messages\" />
+    <Folder Include="LEDBBAT-TEST\" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="CSV_Audio_Frames.csv" />
