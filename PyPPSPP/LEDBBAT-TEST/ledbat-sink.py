@@ -25,22 +25,23 @@ class PeerProtocol(asyncio.DatagramProtocol):
     def datagram_received(self, data, addr):
         """Reply to the DATA message with the ACK message"""
         ts_in = time.time()
-        type, seq, ts = struct.unpack('>cIQ', data[0:13])
+        type = data[0]
+        seq, ts = struct.unpack('>IQ', data[1:13])
         assert type == 1
 
         msg_len = len(data)
         self._received_data += msg_len
 
-        dly = int((time.time() * 1000000) - ts_in)
+        dly = int((ts_in * 1000000) - ts)
         self._dlys.appendleft(dly)
 
-        msg_ack = self.__build_ack_msg(seq, ts_in)
+        msg_ack = self.__build_ack_msg(seq, dly)
         self._sent_data += len(msg_ack)
 
         self._transport.sendto(msg_ack, addr)
 
         self._num_rx += 1
-        if self._num_rx % 50 == 0:
+        if self._num_rx % 100 == 0:
             sum = 0
             count = 0
             for n in self._dlys:
@@ -65,7 +66,7 @@ class PeerProtocol(asyncio.DatagramProtocol):
     def __build_ack_msg(self, seq, dly):
         """Build a fake message with the given seq number"""
         msg_bin = bytearray()
-        msg_bin.extend(struct.pack_into('>cIQ', bytes([2]), seq, dly))
+        msg_bin.extend(struct.pack('>cIQ', bytes([2]), seq, dly))
         return msg_bin
 
 def main():
