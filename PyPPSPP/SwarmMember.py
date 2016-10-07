@@ -231,8 +231,8 @@ class SwarmMember(object):
     def HandleHave(self, msg_have):
         """Update the local have map"""
         
-        if self._logger.isEnabledFor(logging.DEBUG):
-            logging.debug("FROM > {0} > HAVE: {1}".format(self._peer_num, msg_have))
+        if self._logger.isEnabledFor(logging.INFO):
+            logging.info("FROM > {0} > HAVE: {1}".format(self._peer_num, msg_have))
         
         for i in range(msg_have.start_chunk, msg_have.end_chunk+1):
             self.set_have.add(i)
@@ -296,34 +296,72 @@ class SwarmMember(object):
 
     def RequestChunks(self, chunks_set):
         """Request chunks from this member"""
+        # This function takes set-like object and transforms it into 
+        # number of REQUEST messages. 
+
+        # This var sets the max number of chunks that will be requested
+        max_request = 250
+        requests = []
         first_chunk = min(chunks_set)
+        requested_chunks = set()
+
+        # TODO: We can skip all this and build single REQUEST
+        # and leave the sender to ignore chunks that are missing
+        start = None
+        in_range = False
+        last_chunk = first_chunk + max_request
+
+        for x in range(first_chunk, last_chunk + 1):
+            if x in chunks_set:
+                if in_range:
+                    pass
+                else:
+                    start = x
+                    in_range = True
+                requested_chunks.add(x)
+            else:
+                # X is not in chunks list
+                if in_range:
+                    # We just finished range - build the message
+                    end = x - 1 
+                    assert start != None
+                    assert end >= start
+
+                    req = MsgRequest.MsgRequest()
+                    req.start_chunk = start
+                    req.end_chunk = end
+                    requests.append(req)
+                    start = None
+                    in_range = False
+                else:
+                    # We are in no chunks range
+                    continue
+
+        # One last build
+        if in_range:
+            end = last_chunk
+            assert start != None
+            assert end >= start
+
+            req = MsgRequest.MsgRequest()
+            req.start_chunk = start
+            req.end_chunk = end
+            requests.append(req)
         
-        # Get first range of continuous chunks
-        x = first_chunk + 1
-        while (x in chunks_set) and (first_chunk + 1000 > x):
-            x = x + 1
-        last_chunk = x - 1
-
-        # Build a set
-        request = set()
-        for x in range(first_chunk, last_chunk+1):
-            request.add(x)
-
-        # Build a message
-        req = MsgRequest.MsgRequest()
-        req.start_chunk = first_chunk
-        req.end_chunk = last_chunk
-
+        # Build the actual message
         data = bytearray()
         data[0:4] = struct.pack('>I', self.remote_channel)
-        data[4:] = bytes([MT.REQUEST])
-        data[5:] = req.BuildBinaryMessage()
-
-        if self._logger.isEnabledFor(logging.DEBUG):
-            logging.debug("TO > {0} > REQUEST: {1}".format(self._peer_num, req))
+        i = 0
+        j = len(requests)
+        for msg_req in requests:
+            data.extend(bytes([MT.REQUEST]))
+            data.extend(msg_req.BuildBinaryMessage())
+            i += 1
+            if self._logger.isEnabledFor(logging.INFO):
+                logging.info("TO > {} > ({}/{}) REQUEST: {}".format(self._peer_num, i, j, msg_req))
 
         self.SendAndAccount(data)
-        self._swarm.set_requested = self._swarm.set_requested.union(request)
+        self._swarm.set_requested = self._swarm.set_requested.union(requested_chunks)
 
     def HandleIntegrity(self, msg_integrity):
         """Handle the incomming integorty message"""

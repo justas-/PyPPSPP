@@ -16,6 +16,7 @@ class ContentConsumer(object):
         self._framer = Framer(self.__data_framed, av_framer = True)
         self._q = queue.Queue()
         self._frames_consumed = 0       # Number of A/V frames shown
+        self._frames_missed = 0         # Number of frames that was not there when needed
         self._next_frame = 1            # Next chunk that should go to framer
         self._biggest_seen_chunk = 0    # Biggest chunk ID ever seen
 
@@ -33,6 +34,11 @@ class ContentConsumer(object):
         self._handle.cancel()
         self._handle = None
 
+        pct_missed = (self._frames_missed / (self._frames_consumed + self._frames_missed)) * 100
+        pct_showed = 100 - pct_missed
+        logging.info("Frames showed {} ({:.2f}%) / Frames missed {} ({:.2f}%)"
+                     .format(self._frames_consumed, pct_showed, self._frames_missed, pct_missed))
+
     def DataReceived(self, chunk_id, data):
         # Track the biggest seen id
         if chunk_id > self._biggest_seen_chunk:
@@ -46,7 +52,7 @@ class ContentConsumer(object):
         # If we have a gap - try to fill it
         if self._biggest_seen_chunk > self._next_frame:
             while True:
-                chunk = self._swarm._chunk_storage.GetChunkData(self._next_frame)
+                chunk = self._swarm._chunk_storage.GetChunkData(self._next_frame, ignore_missing = True)
                 if chunk == None:
                     # We do not have next chunk yet
                     break
@@ -61,7 +67,6 @@ class ContentConsumer(object):
 
     def __consume(self):
         """Consume the next frame as given by callback"""
-        av_data = None
         try:
             av_data = self._q.get(block = False)
             self._frames_consumed += 1
@@ -70,7 +75,7 @@ class ContentConsumer(object):
                          .format(av_data['id'], len(av_data['vd']), len(av_data['ad'])))
 
         except queue.Empty:
-            # Some day log missing read...
+            self._frames_missed += 1
             pass
             
         # Reschedule the call
