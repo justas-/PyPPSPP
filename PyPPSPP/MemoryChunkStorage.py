@@ -38,11 +38,12 @@ class MemoryChunkStorage(AbstractChunkStorage):
         self._chunks.clear()
         self._chunks = None
 
-    def GetChunkData(self, chunk):
+    def GetChunkData(self, chunk, ignore_missing = False):
         if chunk in self._chunks.keys():
             return self._chunks[chunk]
         else:
-            logging.info("Received request for missing chunk: {0}".format(chunk))
+            if not ignore_missing:
+                logging.info("Received request for missing chunk: {0}".format(chunk))
             return None
 
     def SaveChunkData(self, chunk_id, data):

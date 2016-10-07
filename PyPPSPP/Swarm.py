@@ -31,7 +31,7 @@ class Swarm(object):
 
         # data
         # TODO: Live discard window!
-        self._selection_rps = 3         # Frequency of selection alg run (runs per second)
+        self._selection_rps = 1         # Frequency of selection alg run (runs per second)
         self._chunk_storage = None
         self._chunk_selction_handle = None
         self._chunk_offer_handle = None
@@ -157,14 +157,15 @@ class Swarm(object):
             return
 
         # If we are twice at the same fulfillment level - start re-requesting chunks
-        if num_missing == self._last_num_missing:
-            for member in self._members:
-                member.set_requested.clear()
-            self.set_requested.clear()
+        #if num_missing == self._last_num_missing:
+        #    for member in self._members:
+        #        member.set_requested.clear()
+        #    self.set_requested.clear()
 
         # TODO: Implement smart algorithm here
         for member in self._members:
-            set_i_need = member.set_have - self.set_have - self.set_requested
+            #set_i_need = member.set_have - self.set_have - self.set_requested
+            set_i_need = member.set_have - self.set_have
             len_i_need = len(set_i_need)
             #logging.info("Need {0} chunks from member {1}"
             #             .format(len_i_need, member))
@@ -172,7 +173,7 @@ class Swarm(object):
                 member.RequestChunks(set_i_need)
 
         # Number of chunks missing at the end of chunk selection alg run
-        self._last_num_missing = len(self.set_requested)
+        #self._last_num_missing = len(self.set_requested)
 
         # Schedule a call to select chunks again
         self._chunk_selction_handle = asyncio.get_event_loop().call_later(
@@ -230,3 +231,7 @@ class Swarm(object):
 
         # Close chunk storage
         self._chunk_storage.CloseStorage()
+
+        # If live - print data
+        if self.live and not self.live_src:
+            self._cont_consumer.StopConsuming()

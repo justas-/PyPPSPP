@@ -24,7 +24,8 @@ class MsgRequest(object):
         self.end_chunk = contents[1]
         
     def __str__(self):
-        return str("[REQUEST] Start: {0}; End: {1}".format(self.start_chunk, self.end_chunk))
+        return str("[REQUEST] Start: {}; End: {}; Num chunks: {}"
+                   .format(self.start_chunk, self.end_chunk, self.end_chunk - self.start_chunk + 1))
 
     def __repr__(self):
         return self.__str__()
