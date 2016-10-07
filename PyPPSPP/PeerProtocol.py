@@ -7,7 +7,7 @@ import Swarm
 import SwarmMember
 
 
-class PeerProtocol(object):
+class PeerProtocol(asyncio.DatagramProtocol):
     """A class for use with Python asyncio library"""
 
     def __init__(self):
@@ -27,6 +27,8 @@ class PeerProtocol(object):
     def datagram_received(self, data, addr):
         # Called on incomming datagram
         self._num_msg_rx = self._num_msg_rx + 1
+        self.swarm._all_data_rx += len(data)
+
         # Keep this check
         if self._logger.isEnabledFor(logging.DEBUG):
             logging.debug("Datagram received ({0}). From: {1}; Len: {2}B"
@@ -43,7 +45,7 @@ class PeerProtocol(object):
                 return
             new_member.ParseData(data)
         else:
-            # Tr to find requested channel
+            # Try to find requested channel
             member = self.swarm.GetMemberByChannel(my_channel)
 
             if member != None:
@@ -61,6 +63,12 @@ class PeerProtocol(object):
     def connection_lost(self, exc):
         logging.critical("Socket closed: {0}".format(exc))
         loop.stop()
+
+    def pause_writing(self):
+        logging.warn("PEER PROTOCOL IS OVER THE HIGH-WATER MARK")
+    
+    def resume_writing(self):
+        logging.warn("PEER PROTOCL IS DRAINED BELOW THE HIGH-WATER MARK")
 
     def CloseProtocol(self):
         self.swarm.CloseSwarm()

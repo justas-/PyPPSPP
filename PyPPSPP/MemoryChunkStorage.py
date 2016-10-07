@@ -25,8 +25,7 @@ class MemoryChunkStorage(AbstractChunkStorage):
         self._num_chunks_received = 0   # Number of all chunks received
         self._num_unique_received = 0   # Number of unique chunks received
 
-        self._have_built = False
-        self._have_keys = {}
+        self._have_outstanding = 0
 
     def Initialize(self, is_source):
         """Initialize In Memory storage"""
@@ -122,8 +121,14 @@ class MemoryChunkStorage(AbstractChunkStorage):
             self._swarm.set_have.add(self._last_inject_id)
         last_ch = self._last_inject_id
 
-        self.BuildHaveRangesLiveSrc()
-        self._swarm.SendHaveToMembers()
+        # Reduce the number of have messages
+        self._have_outstanding += len(packs)
+        if self._have_outstanding >= 100:
+            self.BuildHaveRangesLiveSrc()
+            logging.info("Sending Have: {} to connected peers. Outstanding: {}"
+                         .format(self._swarm._have_ranges, self._have_outstanding))
+            self._swarm.SendHaveToMembers()
+            self._have_outstanding = 0
 
     def BuildHaveRangesLiveSrc(self):
         # Build have ranges in Live Source

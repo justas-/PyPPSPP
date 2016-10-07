@@ -23,7 +23,7 @@ def main(argv):
     swarmid = '87a5e6618b2af6f92854eb83e2664d09af7db138'
     filesize = 10485788
     live = True
-    live_src = False
+    live_src = True
 
     try:
         opts, args = getopt.getopt(argv, "t:f:s:z:l", ["tracker=", "filename=", "swarmid=", "filesize=", "live", "live-src"])
@@ -50,7 +50,7 @@ def main(argv):
 
     # Start minimalistic event loop
     loop = asyncio.get_event_loop()
-    loop.set_debug(True)
+    loop.set_debug(False)
 
     tracker = SimpleTracker()
 

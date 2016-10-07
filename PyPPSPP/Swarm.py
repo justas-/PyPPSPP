@@ -5,6 +5,10 @@ import datetime
 import os
 import hashlib
 import struct
+import sys
+import socket
+import time
+import json
 
 from SwarmMember import SwarmMember
 from GlobalParams import GlobalParams
@@ -50,6 +54,10 @@ class Swarm(object):
         self._cont_consumer = None
         self._cont_generator = None
 
+        self._all_data_rx = 0
+        self._all_data_tx = 0
+        self._start_time = time.time()
+
         if self.live:
             # Initialize in memory chunk storage
             self._chunk_storage = MemoryChunkStorage(self)
@@ -78,6 +86,7 @@ class Swarm(object):
     def SendData(self, ip_address, port, data):
         """Send data over a socket used by this swarm"""
         self._socket.sendto(data, (ip_address, port))
+        self._all_data_tx += len(data)
 
     def AddMember(self, ip_address, port = 6778):
         """Add a member to a swarm and try to initialize connection"""
@@ -149,8 +158,9 @@ class Swarm(object):
         """Implements Chunks selection/request algorith"""
         
         num_missing = len(self.set_missing)
-        #logging.info("Running chunks selection algorithm. Live: {0}; Num missing: {1}"
-        #             .format(self.live, num_missing))
+
+        if self.live_src and num_missing > 0:
+            raise AssertionError("Live Source and missing chunks!")
 
         if num_missing == 0 and self.live == False:
             logging.info("All chunks onboard. Not rescheduling selection alg")
@@ -221,10 +231,43 @@ class Swarm(object):
             logging.info("   Member: {0};\tRX: {1} Bytes; TX: {2} Bytes"
                          .format(member, member._total_data_rx, member._total_data_tx))
 
+    def _log_data(self, data):
+        """Log all data from the data dict to unique file"""
+        location = ""
+        if sys.platform == "linux" or sys.platform == "linux2":
+            location = "/tmp/"
+        elif sys.platform == "win32":
+            location = "C:\\test\\"
+        else:
+            raise BaseException("Unknown platform")
+
+        hostname = socket.gethostbyname()
+        with open(location+hostname+int(time.time())+".dat","rw") as fp:
+            fp.write(json.dumps(data))
+
     def CloseSwarm(self):
         """Close swarm nicely"""
         logging.info("Request to close swarm nicely!")
         self.ReportData()
+        ############################
+        report = {}
+        report['data_tx'] = self._all_data_tx
+        report['data_rx'] = self._all_data_rx
+
+        report['live'] = self.live
+        report['live_src'] = self.live_src
+        
+        if self._chunk_storage is FileChunkStorage:
+            report['file_ts_start'] = self._chunk_storage._ts_start
+            report['file_ts_end'] = self._chunk_storage._ts_end
+        elif self._chunk_storage is MemoryChunkStorage:
+            pass
+
+        report['start_time'] = self._start_time
+        report['close_time'] = time.time()
+        self._log_data(report)
+        ############################
+
         # Send departure handshakes
         for member in self._members:
             member.Disconnect()

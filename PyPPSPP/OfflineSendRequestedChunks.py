@@ -40,9 +40,11 @@ class OfflineSendRequestedChunks(AbstractSendRequestedChunks):
             logging.info("Can serve: {0}/{1} chunks. Sent {2} chunk"
                          .format(len(set_to_send), len(self._swarm.set_have), chunk_to_send))
 
-            # TODO: Here will live LEDBAT and delay calculation
-            self._member._sending_handle = asyncio.get_event_loop().call_later(
-                0.005, self._member.SendRequestedChunks)
+            delay = self._member._ledbat.get_delay(len(mdata_bin))
+            if delay == 0:
+                self._member._sending_handle = asyncio.get_event_loop().call_soon(self._member.SendRequestedChunks)
+            else:
+                self._member._sending_handle = asyncio.get_event_loop().call_later(delay, self._member.SendRequestedChunks)
         else:
             # We have sent everything, now check if we need to resend
             if len(self._swarm.set_have - self._member.set_requested) != 0:

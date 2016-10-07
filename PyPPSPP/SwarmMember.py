@@ -15,6 +15,7 @@ from MessagesParser import MessagesParser
 from GlobalParams import GlobalParams
 from OfflineSendRequestedChunks import OfflineSendRequestedChunks
 from VODSendRequestedChunks import VODSendRequestedChunks
+from LEDBAT import LEDBAT
 
 class SwarmMember(object):
     """A class used to represent member in the swarm"""
@@ -80,6 +81,7 @@ class SwarmMember(object):
             self._chunk_sending_alg = OfflineSendRequestedChunks(
                 self._swarm, self)
         self._sending_handle = None
+        self._ledbat = LEDBAT()
 
     def SendHandshake(self):
         """Send initial packet to the potential remote peer"""
@@ -369,14 +371,17 @@ class SwarmMember(object):
         """Handle incomming ACK message"""
         for x in range(msg_ack.start_chunk, msg_ack.end_chunk + 1):
             self.set_requested.discard(x)
+        self._ledbat.feed_ack([msg_ack.one_way_delay_sample], 1)
 
     def HandleRequest(self, msg_request):
         """Handle incomming REQUEST message"""
         for x in range(msg_request.start_chunk, msg_request.end_chunk + 1):
             self.set_requested.add(x)
+            # TODO: We might want a more intelligent ACK mechanism than this, but this works well for now
+            self.set_sent.discard(x)
 
-        if self._logger.isEnabledFor(logging.DEBUG):
-            logging.debug("FROM > {0} > REQUEST: {1}".format(self._peer_num, msg_request))
+        if self._logger.isEnabledFor(logging.INFO):
+            logging.info("FROM > {0} > REQUEST: {1}".format(self._peer_num, msg_request))
 
         # Try to send some data
         if self._sending_handle == None:
