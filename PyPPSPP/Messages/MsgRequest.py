@@ -19,7 +19,8 @@ class MsgRequest(object):
 
     def ParseReceivedData(self, data):
         """Parse received data back to the message"""
-        contents = unpack('>II', data)
+        # TODO: This method should be adapted to chunk addressing method
+        contents = unpack('>II', data[0:8])
         self.start_chunk = contents[0]
         self.end_chunk = contents[1]
         

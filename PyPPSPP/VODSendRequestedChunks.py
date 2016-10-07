@@ -17,6 +17,7 @@ class VODSendRequestedChunks(AbstractSendRequestedChunks):
         # Choose what to send
         set_to_send = (self._swarm.set_have & self._member.set_requested) - self._member.set_sent
         #set_to_send = self._swarm.set_have - self._member.set_sent
+        #set_to_send = (self._swarm.set_have & self._member.set_requested)
         outstanding_len = len(set_to_send)
 
         if outstanding_len > 0:
