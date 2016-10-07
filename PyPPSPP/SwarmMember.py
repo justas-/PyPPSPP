@@ -375,6 +375,8 @@ class SwarmMember(object):
         for x in range(msg_ack.start_chunk, msg_ack.end_chunk + 1):
             self.set_requested.discard(x)
         self._ledbat.feed_ack([msg_ack.one_way_delay_sample], 1)
+        if self._logger.isEnabledFor(logging.INFO):
+                logging.info("FROM > {} > ACK: {} to {}".format(self._peer_num, msg_ack.start_chunk, msg_ack.end_chunk))
 
     def HandleRequest(self, msg_request):
         """Handle incomming REQUEST message"""

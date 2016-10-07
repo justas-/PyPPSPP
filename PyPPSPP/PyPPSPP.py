@@ -19,11 +19,11 @@ def main(argv):
     # Leave here just download directory
     #trackerip = '127.0.0.1'      
     trackerip = '10.51.32.121'
-    filename = 'test10MB-.bin'
-    swarmid = '87a5e6618b2af6f92854eb83e2664d09af7db138'
-    filesize = 10485788
-    live = True
-    live_src = True
+    filename = 'C:\\PyPPSPP\\test100MB.bin'
+    swarmid = '8a3bae81b65cb4b3f10d7a788cbd9c1eee139951'
+    filesize = 104857600
+    live = False
+    live_src = False
 
     try:
         opts, args = getopt.getopt(argv, "t:f:s:z:l", ["tracker=", "filename=", "swarmid=", "filesize=", "live", "live-src"])

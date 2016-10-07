@@ -43,6 +43,7 @@ class OfflineSendRequestedChunks(AbstractSendRequestedChunks):
             if delay == 0:
                 self._member._sending_handle = asyncio.get_event_loop().call_soon(self._member.SendRequestedChunks)
             else:
+                delay = 0.1
                 self._member._sending_handle = asyncio.get_event_loop().call_later(delay, self._member.SendRequestedChunks)
         else:
             # We have sent everything, now check if we need to resend
@@ -53,7 +54,7 @@ class OfflineSendRequestedChunks(AbstractSendRequestedChunks):
                     logging.info("In the end-of-sending backoff")
                     self._outstanding_backoff = True
                     self._member._sending_handle = asyncio.get_event_loop().call_later(
-                        1, self.SendRequestedChunks)
+                        1, self._member.SendRequestedChunks)
                 else:
                     # Remove un-ACKed pieces from sent set and keep sending
                     self._member.set_sent = self._member.set_sent - self._member.set_requested
