@@ -13,10 +13,13 @@ if __name__ == "__main__" and __package__ is None:
     from LEDBAT import LEDBAT
 
 class PeerProtocol(asyncio.DatagramProtocol):
+    LOGINT = 1
+
     def __init__(self, **kwargs):
-        self._peer_addr = ("127.0.0.1", 6778)
+        self._peer_addr = ("10.51.32.132", 6778)
         self._transport = None
         self._send_handle = None
+        self._stat_handle = None
         self._ledbat = LEDBAT()
         self._loop = asyncio.get_event_loop()
         self._next_id = 1
@@ -25,7 +28,12 @@ class PeerProtocol(asyncio.DatagramProtocol):
         self._ret_control = collections.deque(5*[None], 5)
 
         self._start_time = None
+        self._int_time = None
         self._sent_data = 0
+        self._int_data = 0
+        self._num_retrans = 0
+        self._int_retrans = 0
+        self._delays = collections.deque(10*[None], 10)
 
     def connection_made(self, transport):
         logging.info("Connection made callback")
@@ -33,10 +41,11 @@ class PeerProtocol(asyncio.DatagramProtocol):
         self.start_sending()
 
     def datagram_received(self, data, addr):
-        type, seq, ts = struct.unpack('>cIQ', data)
+        type = data[0]
+        seq, ts = struct.unpack('>IQ', data[1:13])
         assert type == 2
         self._in_flight.discard(seq)
-        self._ledbat.FeedAck([ts], 1)
+        self._ledbat.feed_ack([ts], 1)
 
     def error_received(self, exc):
         logging.warning("Error received: {0}".format(exc))
@@ -56,29 +65,67 @@ class PeerProtocol(asyncio.DatagramProtocol):
         """
         assert self._send_handle is None
         self._start_time = time.time()
+        self._int_time = time.time()
         self._send_handle = self._loop.call_soon(self.__send_next)
+        self._stat_handle = self._loop.call_later(PeerProtocol.LOGINT, self.__print_stats)
 
     def stop_sending(self):
         """Stop sending data"""
         assert self._send_handle is not None
         self._send_handle.cancel()
         self._send_handle = None
+        self._stat_handle.cancel()
+        self._stat_handle = None
+
+    def __print_stats(self):
+        t_now = time.time()
+        speed_avg = self._sent_data / (t_now - self._start_time)
+        speed_int = (self._sent_data - self._int_data) / (t_now - self._int_time)
+        retr_int = self._num_retrans - self._int_retrans
+
+        self._int_data = self._sent_data
+        self._int_time = t_now
+        self._int_retrans = self._num_retrans
+
+        avg_delay = 0
+        num_delay = 0
+        for i in self._delays:
+            if i is not None:
+                avg_delay += i
+                num_delay += 1
+        avg_delay = avg_delay / num_delay
+
+        logging.info("Num in flight: {}; Speed (avg/int): {}/{}; qd: {}; cwnd: {}; retr: {} avg_del: {}; next_seq: {};"
+                     .format(
+                         len(self._in_flight),
+                         int(speed_avg),
+                         int(speed_int),
+                         self._ledbat._qd,
+                         self._ledbat._cwnd,
+                         retr_int,
+                         avg_delay,
+                         self._next_id
+                         ))
+        self._stat_handle = self._loop.call_later(PeerProtocol.LOGINT, self.__print_stats)
 
     def __build_msg(self, seq):
         """Build a fake message with the given seq number"""
         msg_bin = bytearray()
-        msg_bin.extend(struct.pack_into('>cIQ',
-                                        bytes([1]),                 # MSG TYPE
-                                        seq,                        # SEQ
-                                        ((time.time() * 1000000)))) # TIMESTAMP
-        msg_bin.extend(1024 * bytes([127]))                         # DATA
+        msg_bin.extend(struct.pack('>cIQ',
+                                    bytes([1]),                    # MSG TYPE
+                                    seq,                           # SEQ
+                                    int((time.time() * 1000000)))) # TIMESTAMP
+        msg_bin.extend(1024 * bytes([127]))                        # DATA
 
         return msg_bin
 
     def __send_next(self):
         """Perform generating and sending of data"""
         msg_bin = bytearray()
-        min_in_flight = min(self._in_flight)
+
+        min_in_flight = None
+        if len(self._in_flight) > 0:
+            min_in_flight = min(self._in_flight)
 
         if min_in_flight is None:
             # All is acknowledged
@@ -99,7 +146,8 @@ class PeerProtocol(asyncio.DatagramProtocol):
                 if min_in_flight <= deq_front:
                     # Retransmit
                     msg_bin = self.__build_msg(min_in_flight)
-                    self._ledbat.DataLoss()
+                    self._num_retrans += 1
+                    self._ledbat.data_loss()
                 else:
                     # Send as normal
                     msg_bin = self.__build_msg(self._next_id)
@@ -108,7 +156,8 @@ class PeerProtocol(asyncio.DatagramProtocol):
                     self._next_id += 1
 
         msg_sz = len(msg_bin)
-        delay = self._ledbat.GetDelay(msg_sz)
+        delay = self._ledbat.get_delay(msg_sz)
+        self._delays.appendleft(delay)
 
         self._transport.sendto(msg_bin, self._peer_addr)
         self._sent_data += msg_sz
