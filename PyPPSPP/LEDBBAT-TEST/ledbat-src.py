@@ -6,6 +6,7 @@ import os
 import time
 import collections
 import struct
+import argparse
 
 if __name__ == "__main__" and __package__ is None:
     top = pathlib.Path(__file__).resolve().parents[1]
@@ -15,8 +16,8 @@ if __name__ == "__main__" and __package__ is None:
 class PeerProtocol(asyncio.DatagramProtocol):
     LOGINT = 1
 
-    def __init__(self, **kwargs):
-        self._peer_addr = ("10.51.32.132", 6778)
+    def __init__(self, args):
+        self._peer_addr = (args.target_ip, 6778)
         self._transport = None
         self._send_handle = None
         self._stat_handle = None
@@ -167,13 +168,13 @@ class PeerProtocol(asyncio.DatagramProtocol):
         else:
             self._send_handle = self._loop.call_later(delay, self.__send_next)
 
-def main():
+def main(args):
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
-    logging.info("LEDBAT TEST SOURCE starting")
+    logging.info("LEDBAT TEST SOURCE starting. Target: {}".format(args.target_ip))
 
     loop = asyncio.get_event_loop()
 
-    listen = loop.create_datagram_endpoint(PeerProtocol, local_addr=("0.0.0.0", 6778))
+    listen = loop.create_datagram_endpoint(lambda: PeerProtocol(args), local_addr=("0.0.0.0", 6778))
     transport, protocol = loop.run_until_complete(listen)
     
     if os.name == 'nt':
@@ -188,4 +189,10 @@ def main():
         pass
 
 if __name__ == "__main__":
-    main()
+    # Parse cmd line parameters and/or use defaults
+    parser = argparse.ArgumentParser(description="Send UDP traffic using LEDBAT")
+    parser.add_argument("target_ip", help='Traffic sink address', nargs='?', default='10.51.32.132')
+    args = parser.parse_args()
+
+    # Start the program
+    main(args)
