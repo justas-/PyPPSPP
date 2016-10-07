@@ -292,6 +292,9 @@ class SwarmMember(object):
         delay = int((time.time() * 1000000) - ts)
         msg_ack.one_way_delay_sample = delay
 
+        if self._logger.isEnabledFor(logging.INFO):
+            logging.info("Sent ACK for {} to {}".format(msg_ack.start_chunk, msg_ack.end_chunk))
+
         self._outbox.append(msg_ack)
 
     def RequestChunks(self, chunks_set):
