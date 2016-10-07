@@ -240,8 +240,8 @@ class Swarm(object):
         else:
             raise BaseException("Unknown platform")
 
-        hostname = socket.gethostbyname()
-        with open(location+hostname+int(time.time())+".dat","rw") as fp:
+        hostname = socket.gethostname()
+        with open(location+hostname+"_"+str(int(time.time()))+".dat","w") as fp:
             fp.write(json.dumps(data))
 
     def CloseSwarm(self):
@@ -256,9 +256,10 @@ class Swarm(object):
         report['live'] = self.live
         report['live_src'] = self.live_src
         
-        if self._chunk_storage is FileChunkStorage:
+        if isinstance(self._chunk_storage, FileChunkStorage):
             report['file_ts_start'] = self._chunk_storage._ts_start
             report['file_ts_end'] = self._chunk_storage._ts_end
+            report['start_source'] = self._chunk_storage._start_source
         elif self._chunk_storage is MemoryChunkStorage:
             pass
 

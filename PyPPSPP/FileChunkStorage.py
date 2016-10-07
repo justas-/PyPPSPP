@@ -1,7 +1,7 @@
 import logging
 import os
 import math
-import datetime
+import time
 
 from MerkleHashTree import MerkleHashTree
 from AbstractChunkStorage import AbstractChunkStorage
@@ -21,6 +21,7 @@ class FileChunkStorage(AbstractChunkStorage):
 
         self._ts_start = 0
         self._ts_end = 0
+        self._start_source = False
 
         self._num_chunks = 0
 
@@ -37,14 +38,14 @@ class FileChunkStorage(AbstractChunkStorage):
                 logging.info("File integrity checking passed. Starting to share the file")
                 self.InitValidFile()
             else:
-                logging.info("File integrity checking failed. Recreating the file")
+                logging.info("File integrity checking failed. Calculated hash: {}. Recreating file!".format(self._mht.root_hash))
                 self.InitNewFile()
         else:
             logging.info("No file found. Creating an empty file")
             self.InitNewFile()
 
         # Save timestamp when we start operating for stats
-        self._ts_start = datetime.datetime.now()
+        self._ts_start = time.time()
         self._ts_end = None
 
     def CloseStorage(self):
@@ -75,9 +76,9 @@ class FileChunkStorage(AbstractChunkStorage):
 
         # Close the file once we are done and reopen read-only
         if len(self._swarm.set_missing) == 0:
-            self._ts_end = datetime.datetime.now()
+            self._ts_end = time.time()
             elapsed_time = self._ts_end - self._ts_start
-            elapsed_seconds = elapsed_time.total_seconds()
+            elapsed_seconds = int(elapsed_time)
             logging.info("Downloaded in {0}s. Speed: {1}Bps".format(elapsed_seconds, self._file_size / elapsed_seconds))
 
             # Once all downlaoded - stop running the selection alg
@@ -95,6 +96,7 @@ class FileChunkStorage(AbstractChunkStorage):
         """We have the file and it passes validation"""
         self._file = open(self._file_name, 'br')
         self._file_completed = True
+        self._start_source = True
 
         # Create set of pieces we have
         for x in range(self._num_chunks):

@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>995bf44d-b813-475a-b315-c022513f8d15</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>LEDBBAT-TEST\ledbat-src.py</StartupFile>
+    <StartupFile>PyPPSPP.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
