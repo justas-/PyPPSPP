@@ -36,8 +36,8 @@ class OfflineSendRequestedChunks(AbstractSendRequestedChunks):
             self._member.SendAndAccount(mdata_bin)
             self._member.set_sent.add(chunk_to_send)
 
-            logging.info("Can serve: {0}/{1} chunks. Sent {2} chunk"
-                         .format(len(set_to_send), len(self._swarm.set_have), chunk_to_send))
+            #logging.info("Can serve: {0}/{1} chunks. Sent {2} chunk"
+            #             .format(len(set_to_send), len(self._swarm.set_have), chunk_to_send))
 
             delay = self._member._ledbat.get_delay(len(mdata_bin))
             if delay == 0:

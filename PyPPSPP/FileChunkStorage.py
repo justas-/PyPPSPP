@@ -64,7 +64,7 @@ class FileChunkStorage(AbstractChunkStorage):
 
         self._file.seek(chunk_id * GlobalParams.chunk_size)
         self._file.write(data)
-        logging.info("Wrote chunk {0} to file".format(chunk_id))
+        #logging.info("Wrote chunk {0} to file".format(chunk_id))
 
         # Update present / requested / missing chunks
         self._swarm.set_have.add(chunk_id)

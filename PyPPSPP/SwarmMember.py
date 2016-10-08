@@ -58,8 +58,9 @@ class SwarmMember(object):
         self._data_msg_rx = 0
 
         # Pending ACK functionality
-        self._pending_ack_min = None
-        self._pending_ack_max = None
+        self._unacked_chunks = set()
+        self._unacked_first = None
+        self._unacked_last = None
 
         # Chunk-maps
         self.set_have = set()       # What peer has
@@ -258,28 +259,27 @@ class SwarmMember(object):
         self._swarm.SaveVerifiedData(msg_data.start_chunk, msg_data.data)
 
         # Pending ACK funcionality
-        
-        # Set start of range
-        if self._pending_ack_min == None:
-            self._pending_ack_min = msg_data.start_chunk
-            self._pending_ack_max = msg_data.start_chunk
-            return
-        
-        # Keep increasing until we have a break or reach 10
-        if self._pending_ack_max == msg_data.start_chunk - 1:
-            # Keep increasing
-            self._pending_ack_max = msg_data.start_chunk
+        if self._unacked_first is None:
+            # This is a first data piece
+            self._unacked_first = msg_data.start_chunk
+            self._unacked_last = msg_data.start_chunk
         else:
-            # We have a break - send ack
-            self.BuildAck(self._pending_ack_min, self._pending_ack_max, msg_data.timestamp)
-            self._pending_ack_min = msg_data.start_chunk
-            self._pending_ack_max = msg_data.start_chunk
-            return
+            # This is not a first data piece
+            if self._unacked_last+1 == msg_data.start_chunk:
+                # Keep increasing untill there's a break
+                self._unacked_last = msg_data.start_chunk
+                if self._unacked_last - self._unacked_first == 10:
+                    # Send ACK after 10 unacked
+                    self.BuildAck(self._unacked_first, self._unacked_last, msg_data.timestamp)
+                    # Reset counters
+                    self._unacked_first = None
+                    self._unacked_last = None
+            else:
+                # We have a break
+                self.BuildAck(self._unacked_first, self._unacked_last, msg_data.timestamp)
+                self._unacked_first = msg_data.start_chunk
+                self._unacked_last = msg_data.start_chunk
 
-        if self._data_msg_rx % 10 == 0:
-            self.BuildAck(self._pending_ack_min, self._pending_ack_max, msg_data.timestamp)
-            self._pending_ack_min = None
-            self._pending_ack_max == None
             
     def BuildAck(self, min, max, ts):
         # Send ack to peer
