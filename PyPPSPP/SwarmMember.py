@@ -269,14 +269,16 @@ class SwarmMember(object):
                 self._unacked_last = msg_data.start_chunk
                 if self._unacked_last - self._unacked_first == 10:
                     # Send ACK after 10 unacked
-                    logging.info("ua 10: from {} to {}".format(self._unacked_first, self._unacked_last))
+                    if self._logger.isEnabledFor(logging.DEBUG):
+                        logging.debug("ua 10: from {} to {}".format(self._unacked_first, self._unacked_last))
                     self.BuildAck(self._unacked_first, self._unacked_last, msg_data.timestamp)
                     # Reset counters
                     self._unacked_first = None
                     self._unacked_last = None
             else:
                 # We have a break
-                logging.info("ua br: from {} to {}".format(self._unacked_first, self._unacked_last))
+                if self._logger.isEnabledFor(logging.DEBUG):
+                    logging.debug("ua br: from {} to {}".format(self._unacked_first, self._unacked_last))
                 self.BuildAck(self._unacked_first, self._unacked_last, msg_data.timestamp)
                 self._unacked_first = msg_data.start_chunk
                 self._unacked_last = msg_data.start_chunk
@@ -293,8 +295,8 @@ class SwarmMember(object):
         delay = int((time.time() * 1000000) - ts)
         msg_ack.one_way_delay_sample = delay
 
-        if self._logger.isEnabledFor(logging.INFO):
-            logging.info("Sent ACK for {} to {}".format(msg_ack.start_chunk, msg_ack.end_chunk))
+        if self._logger.isEnabledFor(logging.DEBUG):
+            logging.debug("Sent ACK for {} to {}".format(msg_ack.start_chunk, msg_ack.end_chunk))
 
         self._outbox.append(msg_ack)
 
@@ -319,7 +321,7 @@ class SwarmMember(object):
                 continue
             if i_max == i-1:
                 # We are in a continuous range
-                i_max += 1
+                i_max = i
                 continue
             else:
                 # Range break - create message
@@ -343,13 +345,13 @@ class SwarmMember(object):
         data = bytearray()
         data[0:4] = struct.pack('>I', self.remote_channel)
         i = 0
-        j = len(requests)
-        for msg_req in requests:
+        j = len(req_msgs)
+        for msg_req in req_msgs:
             data.extend(bytes([MT.REQUEST]))
             data.extend(msg_req.BuildBinaryMessage())
             i += 1
-            if self._logger.isEnabledFor(logging.INFO):
-                logging.info("TO > {} > ({}/{}) REQUEST: {}".format(self._peer_num, i, j, msg_req))
+            if self._logger.isEnabledFor(logging.DEBUG):
+                logging.debug("TO > {} > ({}/{}) REQUEST: {}".format(self._peer_num, i, j, msg_req))
 
         self.SendAndAccount(data)
         self._swarm.set_requested = self._swarm.set_requested.union(chunks_set)
@@ -363,8 +365,8 @@ class SwarmMember(object):
         for x in range(msg_ack.start_chunk, msg_ack.end_chunk + 1):
             self.set_requested.discard(x)
         self._ledbat.feed_ack([msg_ack.one_way_delay_sample], 1)
-        if self._logger.isEnabledFor(logging.INFO):
-                logging.info("FROM > {} > ACK: {} to {}".format(self._peer_num, msg_ack.start_chunk, msg_ack.end_chunk))
+        if self._logger.isEnabledFor(logging.DEBUG):
+                logging.debug("FROM > {} > ACK: {} to {}".format(self._peer_num, msg_ack.start_chunk, msg_ack.end_chunk))
 
     def HandleRequest(self, msg_request):
         """Handle incomming REQUEST message"""
@@ -373,8 +375,8 @@ class SwarmMember(object):
             # TODO: We might want a more intelligent ACK mechanism than this, but this works well for now
             self.set_sent.discard(x)
 
-        if self._logger.isEnabledFor(logging.INFO):
-            logging.info("FROM > {0} > REQUEST: {1}".format(self._peer_num, msg_request))
+        if self._logger.isEnabledFor(logging.DEBUG):
+            logging.debug("FROM > {0} > REQUEST: {1}".format(self._peer_num, msg_request))
 
         # Try to send some data
         if self._sending_handle == None:

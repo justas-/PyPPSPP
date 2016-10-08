@@ -33,6 +33,9 @@ class Swarm(object):
         self._socket = socket
         self._members = []
 
+        # Logger for fast access
+        self._logger = logging.getLogger()
+
         # data
         # TODO: Live discard window!
         self._selection_rps = 1         # Frequency of selection alg run (runs per second)
@@ -177,14 +180,15 @@ class Swarm(object):
                 all_empty = False
 
             if len_i_need >= 100:
-                member_request = set(list(set_i_need)[0:99])
+                member_request = set(list(set_i_need)[0:100])
                 member.RequestChunks(member_request)
             else:
                 member.RequestChunks(set_i_need)
 
         # If I can't download anything from anyone - reset requested
         if all_empty == True:
-            logging.info("Cleared rquested chunks set")
+            if self._logger.isEnabledFor(logging.DEBUG):
+                logging.debug("Cleared rquested chunks set. Num missing: {}".format(len(self.set_missing)))
             self.set_requested.clear()
 
         # Schedule a call to select chunks again
