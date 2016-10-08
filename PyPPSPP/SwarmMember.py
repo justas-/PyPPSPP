@@ -270,12 +270,14 @@ class SwarmMember(object):
                 self._unacked_last = msg_data.start_chunk
                 if self._unacked_last - self._unacked_first == 10:
                     # Send ACK after 10 unacked
+                    logging.info("ua 10: from {} to {}".format(self._unacked_first, self._unacked_last))
                     self.BuildAck(self._unacked_first, self._unacked_last, msg_data.timestamp)
                     # Reset counters
                     self._unacked_first = None
                     self._unacked_last = None
             else:
                 # We have a break
+                logging.info("ua br: from {} to {}".format(self._unacked_first, self._unacked_last))
                 self.BuildAck(self._unacked_first, self._unacked_last, msg_data.timestamp)
                 self._unacked_first = msg_data.start_chunk
                 self._unacked_last = msg_data.start_chunk

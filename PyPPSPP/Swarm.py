@@ -119,18 +119,17 @@ class Swarm(object):
         """Ref [RFC7574] §4.3.2 ACK message containing
            the chunk specification of its biggest interval
            covering the chunk"""
+        assert start_chunk <= end_chunk
+        assert start_chunk >= 0
 
-        min_chunk = 0
-        max_chunk = 0
+        min_chunk = start_chunk
+        max_chunk = end_chunk
                 
-        while min_chunk >= 0 and min_chunk in self.set_have:
-            min_chunk = min_chunk - 1
-        min_chunk = min_chunk + 1
+        while min_chunk >= 0 and min_chunk-1 in self.set_have:
+            min_chunk -= 1
 
-        max_chunk = min_chunk
-        while max_chunk in self.set_have:
-            max_chunk = max_chunk + 1
-        max_chunk = max_chunk - 1
+        while max_chunk+1 in self.set_have:
+            max_chunk += 1
 
         return (min_chunk, max_chunk)
 
