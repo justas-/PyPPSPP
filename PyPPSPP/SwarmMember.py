@@ -190,7 +190,6 @@ class SwarmMember(object):
         # We might have generated replies while processing
         self.ProcessOutbox()
 
-#region Messages Handling
     def HandleHandshake(self, msg_handshake):
         """Handle the handshake received from remote peer"""
         
@@ -305,53 +304,40 @@ class SwarmMember(object):
         # number of REQUEST messages. 
 
         # This var sets the max number of chunks that will be requested
-        max_request = 250
-        requests = []
-        first_chunk = min(chunks_set)
-        requested_chunks = set()
+        req_list = list(chunks_set)
+        req_list.sort()
 
-        # TODO: We can skip all this and build single REQUEST
-        # and leave the sender to ignore chunks that are missing
-        start = None
-        in_range = False
-        last_chunk = first_chunk + max_request
+        req_msgs = []
 
-        for x in range(first_chunk, last_chunk + 1):
-            if x in chunks_set:
-                if in_range:
-                    pass
-                else:
-                    start = x
-                    in_range = True
-                requested_chunks.add(x)
+        i_min = None
+        i_max = None
+        for i in req_list:
+            if i_min is None:
+                # This is first range
+                i_min = i
+                i_max = i
+                continue
+            if i_max == i-1:
+                # We are in a continuous range
+                i_max += 1
+                continue
             else:
-                # X is not in chunks list
-                if in_range:
-                    # We just finished range - build the message
-                    end = x - 1 
-                    assert start != None
-                    assert end >= start
+                # Range break - create message
+                req = MsgRequest.MsgRequest()
+                req.start_chunk = i_min
+                req.end_chunk = i_max
+                req_msgs.append(req)
 
-                    req = MsgRequest.MsgRequest()
-                    req.start_chunk = start
-                    req.end_chunk = end
-                    requests.append(req)
-                    start = None
-                    in_range = False
-                else:
-                    # We are in no chunks range
-                    continue
-
+                # Start new range
+                i_min = i
+                i_max = i
+        
         # One last build
-        if in_range:
-            end = last_chunk
-            assert start != None
-            assert end >= start
-
+        if i_min is not None and i_max is not None:
             req = MsgRequest.MsgRequest()
-            req.start_chunk = start
-            req.end_chunk = end
-            requests.append(req)
+            req.start_chunk = i_min
+            req.end_chunk = i_max
+            req_msgs.append(req)
         
         # Build the actual message
         data = bytearray()
@@ -366,7 +352,7 @@ class SwarmMember(object):
                 logging.info("TO > {} > ({}/{}) REQUEST: {}".format(self._peer_num, i, j, msg_req))
 
         self.SendAndAccount(data)
-        self._swarm.set_requested = self._swarm.set_requested.union(requested_chunks)
+        self._swarm.set_requested = self._swarm.set_requested.union(chunks_set)
 
     def HandleIntegrity(self, msg_integrity):
         """Handle the incomming integorty message"""
@@ -393,8 +379,6 @@ class SwarmMember(object):
         # Try to send some data
         if self._sending_handle == None:
            self._sending_handle = asyncio.get_event_loop().call_soon(self.SendRequestedChunks) 
-        
-#endregion
 
     def SetPeerParameters(self, msg_handshake):
         """Set Peer parameters as received in the HS message"""
@@ -478,5 +462,5 @@ class SwarmMember(object):
         return str("Peer {0}:{1} LC: {2}; RC: {3}"
                    .format(self.ip_address, self.udp_port, self.local_channel, self.remote_channel))
 
-    def __rept(self):
-        return self__str__()
+    def __repr__(self):
+        return self.__str__()

@@ -157,7 +157,6 @@ class Swarm(object):
         """Implements Chunks selection/request algorith"""
         
         num_missing = len(self.set_missing)
-
         if self.live_src and num_missing > 0:
             raise AssertionError("Live Source and missing chunks!")
 
@@ -165,24 +164,28 @@ class Swarm(object):
             logging.info("All chunks onboard. Not rescheduling selection alg")
             return
 
-        # If we are twice at the same fulfillment level - start re-requesting chunks
-        #if num_missing == self._last_num_missing:
-        #    for member in self._members:
-        #        member.set_requested.clear()
-        #    self.set_requested.clear()
+        # Check if there's anything I need
+        all_empty = True
 
-        # TODO: Implement smart algorithm here
+        # Request up to 100 from each member
         for member in self._members:
-            #set_i_need = member.set_have - self.set_have - self.set_requested
-            set_i_need = member.set_have - self.set_have
+            set_i_need = member.set_have - self.set_have - self.set_requested
             len_i_need = len(set_i_need)
-            #logging.info("Need {0} chunks from member {1}"
-            #             .format(len_i_need, member))
+
+            # At least one member has something I need
             if len_i_need > 0:
+                all_empty = False
+
+            if len_i_need >= 100:
+                member_request = set(list(set_i_need)[0:99])
+                member.RequestChunks(member_request)
+            else:
                 member.RequestChunks(set_i_need)
 
-        # Number of chunks missing at the end of chunk selection alg run
-        #self._last_num_missing = len(self.set_requested)
+        # If I can't download anything from anyone - reset requested
+        if all_empty == True:
+            logging.info("Cleared rquested chunks set")
+            self.set_requested.clear()
 
         # Schedule a call to select chunks again
         self._chunk_selction_handle = asyncio.get_event_loop().call_later(
