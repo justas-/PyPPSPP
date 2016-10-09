@@ -60,6 +60,11 @@ class Swarm(object):
         self._all_data_rx = 0
         self._all_data_tx = 0
         self._start_time = time.time()
+        self._int_time = 0
+        self._int_chunks = 0
+
+        self._periodic_stats_handle = None
+        self._periodic_stats_freq = 3
 
         if self.live:
             # Initialize in memory chunk storage
@@ -85,6 +90,11 @@ class Swarm(object):
                 filesize = filesize)
 
         logging.info("Created Swarm with ID: {0}".format(self.swarm_id))
+
+        # Start printing stats
+        self._periodic_stats_handle = asyncio.get_event_loop().call_later(
+            self._periodic_stats_freq,
+            self._print_periodic_stats)
 
     def SendData(self, ip_address, port, data):
         """Send data over a socket used by this swarm"""
@@ -236,6 +246,33 @@ class Swarm(object):
         for member in self._members:
             logging.info("   Member: {0};\tRX: {1} Bytes; TX: {2} Bytes"
                          .format(member, member._total_data_rx, member._total_data_tx))
+
+    def _print_periodic_stats(self):
+        # Get stats
+        num_missing = len(self.set_missing)
+        num_have = len(self.set_have)
+
+        # Calculate time interval length
+        t_int = 0
+        if self._int_time == 0:
+            t_int = time.time() - self._start_time
+        else:
+            t_int = time.time() - self._int_time
+
+        # Get number of chunks received
+        chunks_in_int = self._data_chunks_rx - self._int_chunks
+
+        # Set the values
+        self._int_chunks = self._data_chunks_rx
+        self._int_time = time.time()
+
+        # Print results
+        logging.info("# Have/Missing {}/{}; Speed ch/s: {}"
+                     .format(num_have, num_missing, int(chunks_in_int/t_int)))
+
+        self._periodic_stats_handle = asyncio.get_event_loop().call_later(
+            self._periodic_stats_freq,
+            self._print_periodic_stats)
 
     def _log_data(self, data):
         """Log all data from the data dict to unique file"""
