@@ -256,6 +256,7 @@ class SwarmMember(object):
 
         # Save data to file
         # TODO: Hack. now taking one chunk only
+        self.set_i_requested.discard(msg_data.start_chunk)
         self._swarm.SaveVerifiedData(msg_data.start_chunk, msg_data.data)
 
         # Pending ACK funcionality

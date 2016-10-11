@@ -67,12 +67,7 @@ class FileChunkStorage(AbstractChunkStorage):
         #logging.info("Wrote chunk {0} to file".format(chunk_id))
 
         # Update present / requested / missing chunks
-        self._swarm.set_have.add(chunk_id)
-        self._swarm.set_requested.discard(chunk_id)
-        self._swarm.set_missing.discard(chunk_id)
 
-        # Update what we have
-        self.BuildHaveRanges()
 
         # Close the file once we are done and reopen read-only
         if len(self._swarm.set_missing) == 0:

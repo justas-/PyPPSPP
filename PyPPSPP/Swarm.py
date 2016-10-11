@@ -226,8 +226,17 @@ class Swarm(object):
 
     def SaveVerifiedData(self, chunk_id, data):
         """Called when we receive data from a peer and validate the integrity"""
+        # Update stats
         self._data_chunks_rx += 1
+
+        # Save chunk in our storage
         self._chunk_storage.SaveChunkData(chunk_id, data)
+        
+        # Update chunk maps
+        self.set_have.add(chunk_id)
+        self.set_missing.discard(chunk_id)
+        
+        # Feed data to live video consumer if required
         if self.live and not self.live_src:
             self._cont_consumer.DataReceived(chunk_id, data)
 
