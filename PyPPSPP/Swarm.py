@@ -183,9 +183,12 @@ class Swarm(object):
         # Check if there's anything I need
         all_empty = True
 
+        # Have local copy to save recomputing each time
+        all_req_local = self._get_all_requested()
+
         # Request up to REQMAX from each member
         for member in self._members:
-            set_i_need = member.set_have - self.set_have - self._get_all_requested()
+            set_i_need = member.set_have - self.set_have - all_req_local
             len_i_need = len(set_i_need)
             len_member_outstanding = len(member.set_i_requested)
 
@@ -200,8 +203,10 @@ class Swarm(object):
             if len_i_need >= REQMAX:
                 member_request = set(list(set_i_need)[0:REQMAX])
                 member.RequestChunks(member_request)
+                all_req_local = all_req_local | member_request
             else:
                 member.RequestChunks(set_i_need)
+                all_req_local = all_req_local | set_i_need
 
         # If I can't download anything from anyone - reset requested
         if all_empty == True:
