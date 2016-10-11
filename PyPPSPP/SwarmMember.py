@@ -63,9 +63,10 @@ class SwarmMember(object):
         self._unacked_last = None
 
         # Chunk-maps
-        self.set_have = set()       # What peer has
-        self.set_requested = set()  # What peer requested
-        self.set_sent = set()       # What chunks are sent but not ACK. After ACK they are removed
+        self.set_have = set()           # What peer has
+        self.set_requested = set()      # What peer requested from me
+        self.set_sent = set()           # What chunks are sent but not ACK. After ACK they are removed
+        self.set_i_requested = set()    # Set of chunks that I have requeseted from the member
 
         self.unverified_data = []   # Keep all unverified messages
         self._has_complete_data = False     # Peer has full content (i.e. VOD) [RFC7574] § 3.2
@@ -354,7 +355,7 @@ class SwarmMember(object):
                 logging.debug("TO > {} > ({}/{}) REQUEST: {}".format(self._peer_num, i, j, msg_req))
 
         self.SendAndAccount(data)
-        self._swarm.set_requested = self._swarm.set_requested.union(chunks_set)
+        self.set_i_requested = self.set_i_requested | chunks_set
 
     def HandleIntegrity(self, msg_integrity):
         """Handle the incomming integorty message"""

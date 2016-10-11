@@ -168,6 +168,9 @@ class Swarm(object):
 
     def ChunkRequest(self):
         """Implements Chunks selection/request algorith"""
+
+        REQMAX = 1000           # Max number of outstanding requests from one peer
+        REQTHRESH = 250         # Threshhold to request more pieces
         
         num_missing = len(self.set_missing)
         if self.live_src and num_missing > 0:
@@ -180,17 +183,22 @@ class Swarm(object):
         # Check if there's anything I need
         all_empty = True
 
-        # Request up to 100 from each member
+        # Request up to REQMAX from each member
         for member in self._members:
-            set_i_need = member.set_have - self.set_have - self.set_requested
+            set_i_need = member.set_have - self.set_have - self._get_all_requested()
             len_i_need = len(set_i_need)
+            len_member_outstanding = len(member.set_i_requested)
 
             # At least one member has something I need
             if len_i_need > 0:
                 all_empty = False
 
-            if len_i_need >= 100:
-                member_request = set(list(set_i_need)[0:100])
+            # Do not bother asking for more until we are below threshold
+            if len_member_outstanding > REQTHRESH:
+                continue
+
+            if len_i_need >= REQMAX:
+                member_request = set(list(set_i_need)[0:REQMAX])
                 member.RequestChunks(member_request)
             else:
                 member.RequestChunks(set_i_need)
@@ -205,6 +213,16 @@ class Swarm(object):
         self._chunk_selction_handle = asyncio.get_event_loop().call_later(
             1 / self._selection_rps,
             self.ChunkRequest)
+
+    def _get_all_requested(self):
+        """Return a set of all chunks that I have
+           requested from all known members
+        """
+        requested_set = set()
+        for member in self._members:
+            requested_set = requested_set | member.set_i_requested
+
+        return requested_set
 
     def SaveVerifiedData(self, chunk_id, data):
         """Called when we receive data from a peer and validate the integrity"""
