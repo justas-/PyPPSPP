@@ -15,9 +15,8 @@ class OfflineSendRequestedChunks(AbstractSendRequestedChunks):
 
     def SendAndSchedule(self):
         set_to_send = (self._swarm.set_have & self._member.set_requested) - self._member.set_sent
-        outstanding_len = len(set_to_send)
 
-        if outstanding_len > 0:
+        if any(set_to_send):
             # We have stuff to send - all is fine
             chunk_to_send = min(set_to_send)
        
@@ -47,7 +46,7 @@ class OfflineSendRequestedChunks(AbstractSendRequestedChunks):
                 self._member._sending_handle = asyncio.get_event_loop().call_later(delay, self._member.SendRequestedChunks)
         else:
             # We have sent everything, now check if we need to resend
-            if len(self._swarm.set_have - self._member.set_requested) != 0:
+            if any(self._swarm.set_have - self._member.set_requested):
                 # There are pieces in need of resending
                 if self._outstanding_backoff == False:
                     # Give 1 sec to receive ACKs in flight

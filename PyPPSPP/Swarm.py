@@ -49,7 +49,6 @@ class Swarm(object):
         self.set_requested = set()      # This is what I have requested. Always empty in the source of the live stream
 
         self._have_ranges = []          # List of ranges of chunks we have verified
-        self._last_num_missing = 0
 
         self._data_chunks_rx = 0        # Number of data chunks received overall
 
@@ -175,11 +174,11 @@ class Swarm(object):
         REQMAX = 1000           # Max number of outstanding requests from one peer
         REQTHRESH = 250         # Threshhold to request more pieces
         
-        num_missing = len(self.set_missing)
-        if self.live_src and num_missing > 0:
+        any_missing = any(self.set_missing)
+        if self.live_src and any_missing:
             raise AssertionError("Live Source and missing chunks!")
 
-        if num_missing == 0 and self.live == False:
+        if not any_missing and self.live == False:
             logging.info("All chunks onboard. Not rescheduling request algorithm")
             return
 
@@ -234,6 +233,10 @@ class Swarm(object):
 
     def SaveVerifiedData(self, chunk_id, data):
         """Called when we receive data from a peer and validate the integrity"""
+        # When using UDP we might get data after completion
+        if not any(self.set_missing):
+            return
+
         # Update stats
         self._data_chunks_rx += 1
 
@@ -248,8 +251,8 @@ class Swarm(object):
         if self.live and not self.live_src:
             self._cont_consumer.DataReceived(chunk_id, data)
 
-        # Run post complete actions
-        if len(self.set_missing) == 0:
+        # Run post complete actions (not any() is faster than len() == 0)
+        if not any(self.set_missing):
             self._chunk_storage.PostComplete()
 
     def SendHaveToMembers(self):

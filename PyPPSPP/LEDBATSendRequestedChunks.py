@@ -39,16 +39,16 @@ class LEDBATSendRequestedChunks(AbstractSendRequestedChunks):
 
         # Get lowest chunk in flight
         min_in_fligh = None
-        if len(self._member.set_sent) > 0:
+        if any(self._member.set_sent):
             min_in_fligh = min(self._member.set_sent)
 
         # Chunks I have and member is interested
         set_to_send = (self._swarm.set_have & self._member.set_requested) - self._member.set_sent
-        num_to_send = len(set_to_send)
+        any_to_send = any(set_to_send)
 
         if min_in_fligh is None:
             # All is acknowledged. Try to send next requested
-            if num_to_send > 0:
+            if any_to_send:
                 # We have stuff to send
                 next_id = min(set_to_send)
                 self._build_and_send(next_id)
@@ -59,7 +59,7 @@ class LEDBATSendRequestedChunks(AbstractSendRequestedChunks):
 
             if deq_front is None:
                 # Send as normal, not enough in-flight chunks
-                if num_to_send > 0:
+                if any_to_send:
                     # We have stuff to send
                     next_id = min(set_to_send)
                     self._build_and_send(next_id)
@@ -74,7 +74,7 @@ class LEDBATSendRequestedChunks(AbstractSendRequestedChunks):
                     #             .format(min_in_fligh, self._member._ledbat._cto / 1000000))
                 else:
                     # Send as normal
-                    if num_to_send > 0:
+                    if any_to_send:
                         # We have stuff to send
                         next_id = min(set_to_send)
                         self._build_and_send(next_id)
