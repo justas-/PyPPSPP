@@ -47,7 +47,7 @@ def main(args):
     tracker.SetSwarm(protocol.swarm)
 
     # Register with the tracker
-    tracker.RegisterWithTracker(swarmid)
+    tracker.RegisterWithTracker(None)
 
     # Schedule wakeups to catch Ctrl+C in Win32
     # This should be fixed in Python 3.5 

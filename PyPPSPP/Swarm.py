@@ -63,6 +63,8 @@ class Swarm(object):
         self._start_time = time.time()
         self._int_time = 0
         self._int_chunks = 0
+        self._int_data_rx = 0
+        self._int_data_tx = 0
 
         self._periodic_stats_handle = None
         self._periodic_stats_freq = 3
@@ -292,16 +294,25 @@ class Swarm(object):
         else:
             t_int = time.time() - self._int_time
 
-        # Get number of chunks received
+        # Calculate data in interval
         chunks_in_int = self._data_chunks_rx - self._int_chunks
+        data_tx_in_int = self._all_data_tx - self._int_data_tx
+        data_rx_in_int = self._all_data_rx - self._int_data_rx
 
         # Set the values
         self._int_chunks = self._data_chunks_rx
+        self._int_data_rx = self._all_data_rx
+        self._all_data_tx = self._all_data_tx
         self._int_time = time.time()
 
         # Print results
-        logging.info("# Have/Missing {}/{}; Speed ch/s: {}"
-                     .format(num_have, num_missing, int(chunks_in_int/t_int)))
+        logging.info("# Have/Missing {}/{}; Down ch/s: {}; Speed up/down: {}/{} Bps"
+                     .format(
+                         num_have, 
+                         num_missing, 
+                         int(chunks_in_int/t_int),
+                         int(data_tx_in_int/t_int),
+                         int(data_rx_in_int/t_int)))
 
         self._periodic_stats_handle = asyncio.get_event_loop().call_later(
             self._periodic_stats_freq,
