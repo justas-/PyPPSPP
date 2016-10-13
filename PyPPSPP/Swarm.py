@@ -9,6 +9,7 @@ import sys
 import socket
 import time
 import json
+import binascii
 
 from SwarmMember import SwarmMember
 from GlobalParams import GlobalParams
@@ -24,11 +25,11 @@ from ContentGenerator import ContentGenerator
 class Swarm(object):
     """A class used to represent a swarm in PPSPP"""
 
-    def __init__(self, socket, swarm_id, filename, filesize, live, live_src):
+    def __init__(self, socket, args):
         """Initialize the object representing a swarm"""
-        self.swarm_id = swarm_id
-        self.live = live
-        self.live_src = live_src
+        self.swarm_id = binascii.unhexlify(args.swarmid)
+        self.live = args.live
+        self.live_src = args.livesrc
 
         self._socket = socket
         self._members = []
@@ -86,8 +87,8 @@ class Swarm(object):
         else:
             self._chunk_storage = FileChunkStorage(self)
             self._chunk_storage.Initialize(
-                filename = filename, 
-                filesize = filesize)
+                filename = args.filename, 
+                filesize = args.filesize)
 
         logging.info("Created Swarm with ID: {0}".format(self.swarm_id))
 

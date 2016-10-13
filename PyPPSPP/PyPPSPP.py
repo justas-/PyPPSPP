@@ -2,9 +2,7 @@ import logging
 import asyncio
 import os
 import socket
-import binascii
-import sys
-import getopt
+import argparse
 
 from PeerProtocol import PeerProtocol
 from TrackerClientProtocol import TrackerClientProtocol
@@ -14,39 +12,9 @@ from SimpleTracker import SimpleTracker
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
 logging.info ("PyPPSPP starting")
 
-def main(argv):
-    # TODO: Move whatever possible to tracker
-    # Leave here just download directory
-    #trackerip = '127.0.0.1'      
-    trackerip = '10.51.32.121'
-    filename = 'C:\\PyPPSPP\\test100MB.bin'
-    swarmid = '8a3bae81b65cb4b3f10d7a788cbd9c1eee139951'
-    filesize = 104857600
-    live = False
-    live_src = False
-
-    try:
-        opts, args = getopt.getopt(argv, "t:f:s:z:l", ["tracker=", "filename=", "swarmid=", "filesize=", "live", "live-src"])
-    except getopt.GetoptError:
-        print("Error parsing command line arguments")
-        sys.exit(1)
-
-    for opt, arg in opts:
-        if opt in ("-t", "--tracker"):
-            trackerip = arg
-        elif opt in ("-f", "--filename"):
-            filename = arg
-        elif opt in ("-s", "--swarmid"):
-            swarmid = arg
-        elif opt in ("-z", "--filesize"):
-            filesize = int(arg)
-        elif opt in ("-l", "--live"):
-            live = True
-        elif opt in ("--live-src"):
-            live_src = True
-
-    logging.info("PPSPP Parameters:\n\tTracker: {0};\n\tFilename: {1};\n\tFilesize: {2}B;\n\tSwarm: {3};\n\tLive: {4};\n\tLive Source: {5};"
-                 .format(trackerip, filename, filesize, swarmid, live, live_src))
+def main(args):
+    logging.info("PPSPP Parameters:\n\tTracker: {};\n\tFilename: {};\n\tFilesize: {}B;\n\tSwarm: {};\n\tLive: {};\n\tLive Source: {};"
+                 .format(args.tracker, args.filename, args.filesize, args.swarmid, args.live, args.livesrc))
 
     # Start minimalistic event loop
     loop = asyncio.get_event_loop()
@@ -56,7 +24,7 @@ def main(argv):
 
     # Create connection to the tracker node
     # All this code should be hidden in the Tracekr and Swarm manager!
-    tracker_listen = loop.create_connection(lambda: TrackerClientProtocol(tracker), trackerip, 6777)
+    tracker_listen = loop.create_connection(lambda: TrackerClientProtocol(tracker), args.tracker, 6777)
     tracker_transport, traceker_server = loop.run_until_complete(tracker_listen)
 
     # TODO - check if connected to the Tracekr!
@@ -73,7 +41,7 @@ def main(argv):
     # TODO: This is not the right place to do it...
 
     # Create the swarm
-    protocol.init_swarm(binascii.unhexlify(swarmid), filename, filesize, live, live_src)
+    protocol.init_swarm(args)
 
     # Inform tracker about swarm ready to receive connections
     tracker.SetSwarm(protocol.swarm)
@@ -105,4 +73,24 @@ def main(argv):
     loop.close()
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    # Set the default parameters
+    defaults = {}
+    defaults['trackerip'] = "10.51.32.121"
+    defaults['filename'] = "C:\\PyPPSPP\\test100MB.bin"
+    defaults['swarmid'] = "8a3bae81b65cb4b3f10d7a788cbd9c1eee139951"
+    defaults['filesize'] = 104857600
+    defaults['live'] = False
+    defaults['live_src'] = False
+
+    # Parse command line parameters
+    parser = argparse.ArgumentParser(description="Python implementation of PPSPP protocol")
+    parser.add_argument("tracker", help="Tracker IP address", nargs="?", default=defaults['trackerip'])
+    parser.add_argument("filename", help="Filename of the shared file", nargs="?", default=defaults['filename'])
+    parser.add_argument("swarmid", help="Hash value of the swarm", nargs="?", default=defaults['swarmid'])
+    parser.add_argument("filesize", help="Size of the file", nargs="?", default=defaults['filesize'])
+    parser.add_argument("live", help="Is this a live stream", nargs="?", default=defaults['live'])
+    parser.add_argument("livesrc", help="Is this a live stream source", nargs="?", default=defaults['live_src'])
+    
+    # Start the program
+    args = parser.parse_args()
+    main(args)

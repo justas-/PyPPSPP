@@ -20,9 +20,9 @@ class PeerProtocol(asyncio.DatagramProtocol):
         self.transport = transport
         logging.info("connection_made callback")
 
-    def init_swarm(self, swarm_id, swarm_filename, swarm_filesize, live, live_src):
+    def init_swarm(self, args):
         """Initialize the swarm"""
-        self.swarm = Swarm.Swarm(self.transport, swarm_id, swarm_filename, swarm_filesize, live, live_src)
+        self.swarm = Swarm.Swarm(self.transport, args)
 
     def datagram_received(self, data, addr):
         # Called on incomming datagram
