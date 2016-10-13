@@ -57,6 +57,26 @@ class FileChunkStorage(AbstractChunkStorage):
         self._file.seek(chunk * GlobalParams.chunk_size)
         return self._file.read(GlobalParams.chunk_size)
 
+    def PostComplete(self):
+        """Post complete actions for file storage"""
+        self._ts_end = time.time()
+        elapsed_time = self._ts_end - self._ts_start
+        elapsed_seconds = int(elapsed_time)
+        logging.info("Downloaded in {0}s. Speed: {1}Bps".format(elapsed_seconds, self._file_size / elapsed_seconds))
+
+        # Once all downlaoded - stop running the selection alg
+        self._swarm.StopChunkRequesting()
+
+        # Reopen in read-only
+        self._file.close()
+        self._file = open(self._file_name, 'br')
+        self._file_completed = True
+            
+        logging.info("No more missing chunks. Reopening file read-only!")
+        self.BuildHaveRanges()
+        self._swarm.SendHaveToMembers()
+        self._swarm.ReportData()
+
     def SaveChunkData(self, chunk_id, data):
         """Save indicated chunk to file"""
         if self._file_completed == True:
@@ -64,28 +84,7 @@ class FileChunkStorage(AbstractChunkStorage):
 
         self._file.seek(chunk_id * GlobalParams.chunk_size)
         self._file.write(data)
-        #logging.info("Wrote chunk {0} to file".format(chunk_id))
-
-        # Update present / requested / missing chunks
-
-
-        # Close the file once we are done and reopen read-only
-        if len(self._swarm.set_missing) == 0:
-            self._ts_end = time.time()
-            elapsed_time = self._ts_end - self._ts_start
-            elapsed_seconds = int(elapsed_time)
-            logging.info("Downloaded in {0}s. Speed: {1}Bps".format(elapsed_seconds, self._file_size / elapsed_seconds))
-
-            # Once all downlaoded - stop running the selection alg
-            self._swarm.StopChunkRequesting()
-
-            # Reopen in read-only
-            self._file.close()
-            self._file = open(self._file_name, 'br')
-            self._file_completed = True
-            
-            logging.info("No more missing chunks. Reopening file read-only!")
-            self._swarm.ReportData()
+        #logging.info("Wrote chunk {0} to file".format(chunk_id))        
 
     def InitValidFile(self):
         """We have the file and it passes validation"""

@@ -19,3 +19,7 @@ class AbstractChunkStorage():
     def SaveChunkData(self, chunk_id, data):
         """Save given chunk in storage"""
         pass
+
+    def PostComplete(self):
+        """Called when all chunks are onboard"""
+        pass

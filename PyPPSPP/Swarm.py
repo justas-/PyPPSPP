@@ -180,7 +180,7 @@ class Swarm(object):
             raise AssertionError("Live Source and missing chunks!")
 
         if num_missing == 0 and self.live == False:
-            logging.info("All chunks onboard. Not rescheduling selection alg")
+            logging.info("All chunks onboard. Not rescheduling request algorithm")
             return
 
         # Check if there's anything I need
@@ -248,6 +248,10 @@ class Swarm(object):
         if self.live and not self.live_src:
             self._cont_consumer.DataReceived(chunk_id, data)
 
+        # Run post complete actions
+        if len(self.set_missing) == 0:
+            self._chunk_storage.PostComplete()
+
     def SendHaveToMembers(self):
         """Send to members all information about chunks we have"""
         
@@ -302,7 +306,7 @@ class Swarm(object):
         # Set the values
         self._int_chunks = self._data_chunks_rx
         self._int_data_rx = self._all_data_rx
-        self._all_data_tx = self._all_data_tx
+        self._int_data_tx = self._all_data_tx
         self._int_time = time.time()
 
         # Print results
