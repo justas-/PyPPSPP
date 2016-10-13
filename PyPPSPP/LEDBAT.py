@@ -72,7 +72,7 @@ class LEDBAT(object):
                 self._cwnd, 
                 max([self._cwnd / 2, LEDBAT.MIN_CWND * LEDBAT.MSS])])
             self._last_dataloss = time.time()
-            logging.info("Data loss experienced")
+            #logging.info("Data loss experienced")
 
     def feed_ack(self, delays, num_acked = None): # Delays is [Delay]
         """Feed in one-way delay data to the protocol instance"""

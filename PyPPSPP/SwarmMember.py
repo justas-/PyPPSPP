@@ -15,6 +15,7 @@ from MessagesParser import MessagesParser
 from GlobalParams import GlobalParams
 from OfflineSendRequestedChunks import OfflineSendRequestedChunks
 from VODSendRequestedChunks import VODSendRequestedChunks
+from LEDBATSendRequestedChunks import LEDBATSendRequestedChunks
 from LEDBAT import LEDBAT
 
 class SwarmMember(object):
@@ -53,6 +54,9 @@ class SwarmMember(object):
         # Amount of bytes sent and received from this peer in this session
         self._total_data_tx = 0
         self._total_data_rx = 0
+        self._int_time = None
+        self._int_data_tx = 0
+        self._int_data_rx = 0
 
         # Number of data messages received
         self._data_msg_rx = 0
@@ -82,6 +86,8 @@ class SwarmMember(object):
         else:
             self._chunk_sending_alg = OfflineSendRequestedChunks(
                 self._swarm, self)
+            #self._chunk_sending_alg = LEDBATSendRequestedChunks(
+            #    self._swarm, self)
         self._sending_handle = None
         self._ledbat = LEDBAT()
 
@@ -366,6 +372,8 @@ class SwarmMember(object):
         """Handle incomming ACK message"""
         for x in range(msg_ack.start_chunk, msg_ack.end_chunk + 1):
             self.set_requested.discard(x)
+            self.set_sent.discard(x)
+
         self._ledbat.feed_ack([msg_ack.one_way_delay_sample], 1)
         if self._logger.isEnabledFor(logging.DEBUG):
                 logging.debug("FROM > {} > ACK: {} to {}".format(self._peer_num, msg_ack.start_chunk, msg_ack.end_chunk))

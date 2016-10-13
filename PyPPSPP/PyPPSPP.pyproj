@@ -43,6 +43,9 @@
     <Compile Include="LEDBAT.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="LEDBATSendRequestedChunks.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="LEDBBAT-TEST\ledbat-sink.py">
       <SubType>Code</SubType>
     </Compile>
