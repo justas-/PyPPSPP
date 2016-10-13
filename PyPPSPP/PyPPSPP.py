@@ -87,9 +87,9 @@ if __name__ == "__main__":
     parser.add_argument("tracker", help="Tracker IP address", nargs="?", default=defaults['trackerip'])
     parser.add_argument("filename", help="Filename of the shared file", nargs="?", default=defaults['filename'])
     parser.add_argument("swarmid", help="Hash value of the swarm", nargs="?", default=defaults['swarmid'])
-    parser.add_argument("filesize", help="Size of the file", nargs="?", default=defaults['filesize'])
-    parser.add_argument("live", help="Is this a live stream", nargs="?", default=defaults['live'])
-    parser.add_argument("livesrc", help="Is this a live stream source", nargs="?", default=defaults['live_src'])
+    parser.add_argument("filesize", help="Size of the file", nargs="?", type=int, default=defaults['filesize'])
+    parser.add_argument("live", help="Is this a live stream", nargs="?", type=bool, default=defaults['live'])
+    parser.add_argument("livesrc", help="Is this a live stream source", nargs="?", type=bool, default=defaults['live_src'])
     
     # Start the program
     args = parser.parse_args()
