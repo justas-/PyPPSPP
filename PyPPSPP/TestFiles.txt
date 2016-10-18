@@ -9,3 +9,7 @@ swarm_file_size = 10485788
 #swarm_id = binascii.unhexlify("87323eba55d370afcbfdf40ee4fd2b248bb98afb")
 #swarm_filename = r"C:\PyPPSPP\test1MB.bin"
 #swarm_file_size = 1048536
+
+C:\PyPPSPP\test50MB.bin
+c902da8128108e105d26597b7570b8411f651444
+52428800

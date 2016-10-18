@@ -84,10 +84,10 @@ class SwarmMember(object):
             self._chunk_sending_alg = VODSendRequestedChunks(
                 self._swarm, self)
         else:
-            self._chunk_sending_alg = OfflineSendRequestedChunks(
-                self._swarm, self)
-            #self._chunk_sending_alg = LEDBATSendRequestedChunks(
+            #self._chunk_sending_alg = OfflineSendRequestedChunks(
             #    self._swarm, self)
+            self._chunk_sending_alg = LEDBATSendRequestedChunks(
+                self._swarm, self)
         self._sending_handle = None
         self._ledbat = LEDBAT()
 
