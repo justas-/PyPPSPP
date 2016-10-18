@@ -206,6 +206,7 @@ class SwarmMember(object):
                 if self._sending_handle != None:
                     self._sending_handle.cancel()
                     self._sending_handle = None
+                self._save_stats()
                 self._swarm.RemoveMember(self)
             else:
                 logging.info("Received non-goodbye HANDSHAKE in initialized the channel")
@@ -218,6 +219,7 @@ class SwarmMember(object):
                 if self._sending_handle != None:
                     self._sending_handle.cancel()
                     self._sending_handle = None
+                self._save_stats()
                 self._swarm.RemoveMember(self)
 
             elif self.is_hs_sent == True:
@@ -476,3 +478,22 @@ class SwarmMember(object):
 
     def __repr__(self):
         return self.__str__()
+
+    def _save_stats(self):
+        """Save member stats in Swarm stats collector"""
+
+        # Create stats dictionary
+        stats = {
+            'total_data_tx': self._total_data_tx,
+            'total_data_rx': self._total_data_rx,
+            'peer_ip': self.ip_address,
+            'peer_port': self.udp_port,
+            'peer_id': self._peer_num,
+            'msg_data_rx': self._data_msg_rx
+        }
+
+        # Create peer id
+        pn = "peer_"+str(self._peer_num)
+
+        # Save stats
+        self._swarm._save_member_stats(pn, stats)

@@ -27,6 +27,8 @@ class Swarm(object):
 
     def __init__(self, socket, args):
         """Initialize the object representing a swarm"""
+        self._args = args
+
         self.swarm_id = binascii.unhexlify(args.swarmid)
         self.live = args.live
         self.live_src = args.livesrc
@@ -53,6 +55,7 @@ class Swarm(object):
         self._data_chunks_rx = 0        # Number of data chunks received overall
 
         self._next_peer_num = 1
+        self._max_peers = args.numpeers
 
         self._cont_consumer = None
         self._cont_generator = None
@@ -67,6 +70,8 @@ class Swarm(object):
 
         self._periodic_stats_handle = None
         self._periodic_stats_freq = 3
+
+        self._member_stats = {}
 
         if self.live:
             # Initialize in memory chunk storage
@@ -105,6 +110,11 @@ class Swarm(object):
 
     def AddMember(self, ip_address, port = 6778):
         """Add a member to a swarm and try to initialize connection"""
+        
+        if self._max_peers is not None and len(self._members) > self._max_peers:
+            logging.info("Swarm: Max number of peers reached (Skipping: {0}:{1})".format(ip_address, port))
+            return
+
         logging.info("Swarm: Adding member at {0}:{1}".format(ip_address, port))
 
         for member in self._members:
@@ -325,6 +335,13 @@ class Swarm(object):
             self._periodic_stats_freq,
             self._print_periodic_stats)
 
+    def _save_member_stats(self, name, stats):
+        """Save given member stats"""
+        # Do not overwrite
+        if name in self._member_stats:
+            return
+        self._member_stats[name] = stats
+
     def _log_data(self, data):
         """Log all data from the data dict to unique file"""
         location = ""
@@ -342,7 +359,14 @@ class Swarm(object):
     def CloseSwarm(self):
         """Close swarm nicely"""
         logging.info("Request to close swarm nicely!")
+
+        # Send departure handshakes
+        for member in self._members:
+            member.Disconnect()
+            member._save_stats()
+
         self.ReportData()
+                
         ############################
         report = {}
         report['data_tx'] = self._all_data_tx
@@ -360,12 +384,13 @@ class Swarm(object):
 
         report['start_time'] = self._start_time
         report['close_time'] = time.time()
+
+        if self._args.identifier:
+            report['identifier'] = self._args.identifier
+        report['member_stats'] = self._member_stats
+
         self._log_data(report)
         ############################
-
-        # Send departure handshakes
-        for member in self._members:
-            member.Disconnect()
 
         # Close chunk storage
         self._chunk_storage.CloseStorage()
