@@ -1,5 +1,6 @@
 import logging
 import socket
+import random
 
 class SimpleTracker(object):
     """This class abstracts a simple tracket. It can later be replaced with PPSP-TP"""
@@ -28,7 +29,14 @@ class SimpleTracker(object):
         
         if data['type'] == 'other_peers':
             # We got information about other peers in the system
-            for member in data['details']:
+            if not any(data['details']):
+                return
+
+            # Add members in random order
+            mem_copy = data['details']
+            random.shuffle(mem_copy)
+
+            for member in mem_copy:
                 m = self._swarm.AddMember(member[0], member[1])
                 if m != None:
                     m.SendHandshake()

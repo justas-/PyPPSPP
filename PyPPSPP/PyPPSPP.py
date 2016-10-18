@@ -75,7 +75,7 @@ def main(args):
 if __name__ == "__main__":
     # Set the default parameters
     defaults = {}
-    defaults['trackerip'] = "10.51.32.121"
+    defaults['trackerip'] = "10.0.102.10"
     defaults['filename'] = "C:\\PyPPSPP\\test20MB.bin"
     defaults['swarmid'] = "92e0212854257b8b4742e0dd64075471ef17caef"
     defaults['filesize'] = 20971520

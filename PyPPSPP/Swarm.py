@@ -385,8 +385,7 @@ class Swarm(object):
         report['start_time'] = self._start_time
         report['close_time'] = time.time()
 
-        if self._args.identifier:
-            report['identifier'] = self._args.identifier
+        report['run_args'] = self._args
         report['member_stats'] = self._member_stats
 
         self._log_data(report)
