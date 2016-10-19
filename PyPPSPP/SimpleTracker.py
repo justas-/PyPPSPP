@@ -2,13 +2,21 @@ import logging
 import socket
 import random
 
+import ALTOInterface
+
 class SimpleTracker(object):
     """This class abstracts a simple tracket. It can later be replaced with PPSP-TP"""
 
-    def __init__(self):
+    def __init__(self, args):
         self._tracekr_protocol = None
         self._myip = self._GetMyIP()
         self._swarm = None
+        self._use_alto = args.alto
+        self._alto = None
+        if args.alto:
+            self._alto = ALTOInterface.ALTOInterface("http://10.0.102.4")
+            self._alto.get_costmap()
+            self._alto.get_networkmap()
 
     def SetTrackerProtocol(self, proto):
         self._tracekr_protocol = proto
@@ -31,15 +39,37 @@ class SimpleTracker(object):
             # We got information about other peers in the system
             if not any(data['details']):
                 return
+            if self._use_alto:
+                # Prepare data
+                net_costs = {}
+                my_ip = self._GetMyIP()
 
-            # Add members in random order
-            mem_copy = data['details']
-            random.shuffle(mem_copy)
+                # Sort into price buckets
+                for member in data['details']:
+                    mem_cost = int(self._alto.get_cost_by_ip(my_ip, member[0]))
+                    if mem_cost not in net_costs:
+                        net_costs[mem_cost] = []
+                    net_costs[mem_cost].append(member)
 
-            for member in mem_copy:
-                m = self._swarm.AddMember(member[0], member[1])
-                if m != None:
-                    m.SendHandshake()
+                # Start adding
+                costs = list(net_costs.keys())
+                costs.sort()
+
+                # Add members
+                for cost in costs:
+                    for member in net_costs[cost]:
+                        m = self._swarm.AddMember(member[0], member[1])
+                        if m != None:
+                            m.SendHandshake()
+            else:
+                # Add members in random order
+                mem_copy = data['details']
+                random.shuffle(mem_copy)
+
+                for member in mem_copy:
+                    m = self._swarm.AddMember(member[0], member[1])
+                    if m != None:
+                        m.SendHandshake()
 
         else:
             logging.info("Unhandled Tracker message: {0}".format(data))

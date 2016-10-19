@@ -20,7 +20,7 @@ def main(args):
     loop = asyncio.get_event_loop()
     loop.set_debug(False)
 
-    tracker = SimpleTracker()
+    tracker = SimpleTracker(args)
 
     # Create connection to the tracker node
     # All this code should be hidden in the Tracekr and Swarm manager!
@@ -81,6 +81,7 @@ if __name__ == "__main__":
     defaults['filesize'] = 20971520
     defaults['live'] = False
     defaults['live_src'] = False
+    defaults['alto'] = False
 
     # Parse command line parameters
     parser = argparse.ArgumentParser(description="Python implementation of PPSPP protocol")
@@ -92,6 +93,7 @@ if __name__ == "__main__":
     parser.add_argument("--livesrc", help="Is this a live stream source", nargs="?", type=bool, default=defaults['live_src'])
     parser.add_argument("--numpeers", help="Limit the number of peers", nargs="?", type=int)
     parser.add_argument("--identifier", help="Free text that will be added to the results file", nargs="?")
+    parser.add_argument("--alto", help="Use ALTO server to rank peers", nargs="?", type=bool, default=defaults['alto'])
     
     # Start the program
     args = parser.parse_args()

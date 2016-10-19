@@ -28,6 +28,9 @@
     <Compile Include="AbstractSendRequestedChunks.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="ALTOInterface.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="ContentConsumer.py">
       <SubType>Code</SubType>
     </Compile>
