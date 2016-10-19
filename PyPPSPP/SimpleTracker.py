@@ -14,7 +14,7 @@ class SimpleTracker(object):
         self._use_alto = args.alto
         self._alto = None
         if args.alto:
-            self._alto = ALTOInterface.ALTOInterface("http://10.0.102.4")
+            self._alto = ALTOInterface.ALTOInterface("http://10.0.102.4:5000")
             self._alto.get_costmap()
             self._alto.get_networkmap()
 
@@ -50,6 +50,9 @@ class SimpleTracker(object):
                     if mem_cost not in net_costs:
                         net_costs[mem_cost] = []
                     net_costs[mem_cost].append(member)
+
+                # Log our costs
+                logging.info("ALTO Sorted: {}".format(net_costs))
 
                 # Start adding
                 costs = list(net_costs.keys())
