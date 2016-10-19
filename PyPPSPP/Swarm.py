@@ -111,7 +111,7 @@ class Swarm(object):
     def AddMember(self, ip_address, port = 6778):
         """Add a member to a swarm and try to initialize connection"""
         
-        if self._max_peers is not None and len(self._members) > self._max_peers:
+        if self._max_peers is not None and len(self._members) >= self._max_peers:
             logging.info("Swarm: Max number of peers reached (Skipping: {0}:{1})".format(ip_address, port))
             return
 

@@ -67,6 +67,9 @@ class FileChunkStorage(AbstractChunkStorage):
         # Once all downlaoded - stop running the selection alg
         self._swarm.StopChunkRequesting()
 
+        # Remove peers limit
+        self._swarm._max_peers = None
+
         # Reopen in read-only
         self._file.close()
         self._file = open(self._file_name, 'br')
