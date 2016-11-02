@@ -7,7 +7,7 @@ import Swarm
 import SwarmMember
 
 
-class PeerProtocol(asyncio.DatagramProtocol):
+class PeerProtocolUDP(asyncio.DatagramProtocol):
     """A class for use with Python asyncio library"""
 
     def __init__(self):

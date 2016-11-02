@@ -21,7 +21,7 @@ from LEDBAT import LEDBAT
 class SwarmMember(object):
     """A class used to represent member in the swarm"""
 
-    def __init__(self, swarm, ip_address, udp_port = 6778):
+    def __init__(self, swarm, ip_address, udp_port = 6778, proto = None):
         """Init object representing the remote peer"""
         # Logger for fast access
         self._logger = logging.getLogger()
@@ -29,6 +29,10 @@ class SwarmMember(object):
         self._swarm = swarm
         self.ip_address = ip_address
         self.udp_port = udp_port
+        self._proto = proto
+        self._is_udp = True
+        if proto is not None:
+            self._is_udp = False
 
         # Channels for multiplexing
         self.local_channel = 0
@@ -156,8 +160,15 @@ class SwarmMember(object):
         if self._logger.isEnabledFor(logging.DEBUG):
             logging.debug("!! Sending BIN data: {0}".format(binascii.hexlify(binary_data)))
 
-        self._swarm.SendData(self.ip_address, self.udp_port, binary_data)
-        self._total_data_tx = self._total_data_tx + len(binary_data)
+        datalen = len(binary_data)
+
+        if self._is_udp:
+            self._swarm.SendData(self.ip_address, self.udp_port, binary_data)
+        else:
+            self._proto.send_data(binary_data)
+            self._swarm._all_data_tx += datalen
+
+        self._total_data_tx += datalen
         
     def GotKeepalive(self):
         """Sometimes remote peer might send us keepalive only"""

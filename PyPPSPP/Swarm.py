@@ -108,7 +108,7 @@ class Swarm(object):
         self._socket.sendto(data, (ip_address, port))
         self._all_data_tx += len(data)
 
-    def AddMember(self, ip_address, port = 6778):
+    def AddMember(self, ip_address, port = 6778, proto = None):
         """Add a member to a swarm and try to initialize connection"""
         
         if self._max_peers is not None and len(self._members) > self._max_peers:
@@ -123,7 +123,7 @@ class Swarm(object):
                              .format(ip_address, port))
                 return None
 
-        m = SwarmMember(self, ip_address, port)
+        m = SwarmMember(self, ip_address, port, transport)
         self._members.append(m)
 
         m._peer_num = self._next_peer_num

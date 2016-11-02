@@ -4,9 +4,11 @@ import os
 import socket
 import argparse
 
-from PeerProtocol import PeerProtocol
+from PeerProtocolUDP import PeerProtocolUDP
+from PeerProtocolTCP import PeerProtocolTCP
 from TrackerClientProtocol import TrackerClientProtocol
 from SimpleTracker import SimpleTracker
+from Hive import Hive
 
 # Configure logger
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
@@ -15,6 +17,9 @@ logging.info ("PyPPSPP starting")
 def main(args):
     logging.info("PPSPP Parameters:\n\tTracker: {};\n\tFilename: {};\n\tFilesize: {}B;\n\tSwarm: {};\n\tLive: {};\n\tLive Source: {};"
                  .format(args.tracker, args.filename, args.filesize, args.swarmid, args.live, args.livesrc))
+
+    # Create hive for storing swarms
+    hive = Hive()
 
     # Start minimalistic event loop
     loop = asyncio.get_event_loop()
@@ -30,21 +35,26 @@ def main(args):
     # TODO - check if connected to the Tracekr!
     tracker.SetTrackerProtocol(traceker_server)
 
-    # Create an UDP server
-    # Since we are using Tracker, we don't have to run n 6778 port!
-    listen = loop.create_datagram_endpoint(PeerProtocol, local_addr=("0.0.0.0", 6778))
-    transport, protocol = loop.run_until_complete(listen)
+    if args.tcp:
+        # Create a TCP server
+        # TODO: This is not great
+        listen = loop.create_server(lambda: PeerProtocolTCP(hive), host = "0.0.0.0", port=6778)
+        protocol = loop.run_until_complete(listen)
+    else:
+        # Create an UDP server
+        listen = loop.create_datagram_endpoint(PeerProtocolUDP, local_addr=("0.0.0.0", 6778))
+        transport, protocol = loop.run_until_complete(listen)
 
-    # At this point we have connection to the tracker and listening UDP socket
+    # At this point we have a connection to the tracker and have a listening (TCP/UDP) socket
+    if args.tcp:
+        sw = hive.create_swarm(protocol, args)
+        tracker.SetSwarm(sw)
+    else:
+        # Create the swarm
+        protocol.init_swarm(args)
 
-    # Start the swarm
-    # TODO: This is not the right place to do it...
-
-    # Create the swarm
-    protocol.init_swarm(args)
-
-    # Inform tracker about swarm ready to receive connections
-    tracker.SetSwarm(protocol.swarm)
+        # Inform tracker about swarm ready to receive connections
+        tracker.SetSwarm(protocol.swarm)
 
     # Register with the tracker
     tracker.RegisterWithTracker(None)
@@ -64,23 +74,25 @@ def main(args):
         pass
 
     # Inform protocol to close
-    protocol.CloseProtocol()
+    if args.tcp:
+        protocol.close()
+    else:
+        protocol.CloseProtocol()
+        transport.close()
 
     tracker.UnregisterWithTracker()
-
-    # Clean-up
-    transport.close()
     loop.close()
 
 if __name__ == "__main__":
     # Set the default parameters
     defaults = {}
-    defaults['trackerip'] = "10.0.102.10"
+    defaults['trackerip'] = "10.51.32.121"
     defaults['filename'] = "C:\\PyPPSPP\\test20MB.bin"
     defaults['swarmid'] = "92e0212854257b8b4742e0dd64075471ef17caef"
     defaults['filesize'] = 20971520
     defaults['live'] = False
     defaults['live_src'] = False
+    defaults['tcp'] = True
 
     # Parse command line parameters
     parser = argparse.ArgumentParser(description="Python implementation of PPSPP protocol")
@@ -92,6 +104,7 @@ if __name__ == "__main__":
     parser.add_argument("--livesrc", help="Is this a live stream source", nargs="?", type=bool, default=defaults['live_src'])
     parser.add_argument("--numpeers", help="Limit the number of peers", nargs="?", type=int)
     parser.add_argument("--identifier", help="Free text that will be added to the results file", nargs="?")
+    parser.add_argument("--tcp", help="Use TCP between the peers", nargs="?", default=defaults['tcp'])
     
     # Start the program
     args = parser.parse_args()
