@@ -478,7 +478,9 @@ class SwarmMember(object):
         data[4:] = hs_bin
         
         logging.info("Sending: {0}".format(hs))
+
         self.SendAndAccount(data)
+        self._proto.remove_member(self)
 
     def GetIntegrity(self, data):
         """Calculate the integirty value of given data using remote peers hash"""

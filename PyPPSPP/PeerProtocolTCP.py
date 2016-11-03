@@ -18,6 +18,7 @@ class PeerProtocolTCP(asyncio.Protocol):
         self._framer = Framer.Framer(self.data_deserialized)
         self._ip = None
         self._port = None
+        self._throttle = False
 
     def connection_made(self, transport):
         self._transport = transport
@@ -41,23 +42,31 @@ class PeerProtocolTCP(asyncio.Protocol):
         packet.extend(struct.pack('>I', len(data)))
         packet.extend(data)
 
-        self._transport.write(packet)
+        try:
+            self._transport.write(packet)
+        except Exception as e:
+            logging.warn("Exception when sending: {}".format(e))
+            self.remove_all_members()
 
     def data_received(self, data):
         """Called when data is received from the socket"""
         self._framer.DataReceived(data)
 
     def eof_received(self):
+        self.remove_all_members()
         return True
 
     def connection_lost(self, exc):
-        logging.info("Connection lost")
+        logging.info("Connection lost: {}".format(exc))
+        self.remove_all_members()
 
     def pause_writing(self):
         logging.warn("PEER PROTOCOL IS OVER THE HIGH-WATER MARK")
+        self._throttle = True
 
     def resume_writing(self):
         logging.warn("PEER PROTOCL IS DRAINED BELOW THE HIGH-WATER MARK")
+        self._throttle = False
 
     def data_deserialized(self, data):
         """Called when Framer has enough data"""
@@ -96,3 +105,21 @@ class PeerProtocolTCP(asyncio.Protocol):
         else:
             self._members[member.local_channel] = member
             self._is_orphan = False
+
+    def remove_all_members(self):
+        """Unlink this proto from all members and remove all members from swarms"""
+        for member in self._members.values():
+            swarm = member._swarm
+            
+            member._save_stats()
+            member._proto = None
+            swarm.RemoveMember(member)
+
+    def remove_member(self, member):
+        """Remove given member from a list of linked members"""
+        if member.local_channel in self._members:
+            member._proto = None
+            del self._members[member.local_channel]
+
+        if not any(self._members):
+            self._transport.close()

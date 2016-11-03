@@ -33,7 +33,10 @@ class TCPFullSendRequestedChunks(AbstractSendRequestedChunks):
             self._member.SendAndAccount(mdata_bin)
             self._member.set_sent.add(chunk_to_send)
 
-            self._member._sending_handle = asyncio.get_event_loop().call_soon(self._member.SendRequestedChunks)
+            if self._member._proto._throttle:
+                self._member._sending_handle = asyncio.get_event_loop().call_later(0.5, self._member.SendRequestedChunks)
+            else:
+                self._member._sending_handle = asyncio.get_event_loop().call_soon(self._member.SendRequestedChunks)
         else:
             # If nothing to send check in one second. Eventually this peer will be removed if nothing is being sent
             self._member._sendind_handle = asyncio.get_event_loop().call_later(1, self._member.SendRequestedChunks)
