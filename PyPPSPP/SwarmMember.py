@@ -155,6 +155,11 @@ class SwarmMember(object):
 
         self.SendAndAccount(hs)
 
+        # If this is TCP - we need to register in the TCP Proto
+        if not self._is_udp:
+            self._proto.register_member(self)
+
+
     def SendAndAccount(self, binary_data):
         # Keep this check!
         if self._logger.isEnabledFor(logging.DEBUG):

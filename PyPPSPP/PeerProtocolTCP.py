@@ -78,8 +78,21 @@ class PeerProtocolTCP(asyncio.Protocol):
             swarm_id_len = struct.unpack('>H', data[14:16])[0]
             swarm_id = data[16:16+swarm_id_len]
 
-            swarm = self._hive.get_swarm(swarm_id)
+            swarm_id_str = binascii.hexlify(swarm_id).decode('ascii')
+
+            swarm = self._hive.get_swarm(swarm_id_str)
             if swarm is None:
                 logging.warn("Did not find swarm with ID: {}".format(binascii.hexlify(swarm_id)))
             else:
-                swarm.AddMember(self._ip, self._port, self)
+                m = swarm.AddMember(self._ip, self._port, self)
+                if m is not None:
+                    m.ParseData(data)
+
+    def register_member(self, member):
+        """Link a member object to a connection"""
+        if member.local_channel in self._members:
+            logging.warn("Trying to register the same meber twice!")
+            return
+        else:
+            self._members[member.local_channel] = member
+            self._is_orphan = False

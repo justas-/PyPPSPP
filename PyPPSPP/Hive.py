@@ -15,7 +15,7 @@ class Hive(object):
 
     def create_swarm(self, socket, args):
         """Initialize a new swarm in this node"""
-        swarm_id = args.swarm_id
+        swarm_id = args.swarmid
 
         if swarm_id in self._swarms:
             logging.warn("Trying to add same swarm twice! Swarm: {}".format(swarm_id))
@@ -56,8 +56,13 @@ class Hive(object):
     def make_connection(self, ip, port, swarm_id):
         """Strat the outgoing connection and inform the given swarm once done"""
         logging.info("Making connection to: {}:{}".format(ip, port))
-        swarm = self.get_swarm(swarm_id)
-        socket = swarm._socket
+        swarm_id_str = binascii.hexlify(swarm_id).decode('ascii')
+        swarm = self.get_swarm(swarm_id_str)
+        if swarm is None:
+            logging.warn("Swarm {} not found. Connection will not be made!".format(swarm_id_str))
+            return
+        #
+        #socket = swarm._socket
         
         # Make the connection
         loop = asyncio.get_event_loop()
@@ -68,7 +73,7 @@ class Hive(object):
 
         # Add to a list of pending connectiosns
         # TODO: Check for duplicates
-        self._pending_connection[(ip, port)] = [swarm_id]
+        self._pending_connection[(ip, port)] = [swarm_id_str]
 
     def check_if_waiting(self, ip, port):
         """Check if given connection is being awaited by any swarm"""
