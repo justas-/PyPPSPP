@@ -35,4 +35,5 @@ class TCPFullSendRequestedChunks(AbstractSendRequestedChunks):
 
             self._member._sending_handle = asyncio.get_event_loop().call_soon(self._member.SendRequestedChunks)
         else:
-            self._member._sendind_handle = None
+            # If nothing to send check in one second. Eventually this peer will be removed if nothing is being sent
+            self._member._sendind_handle = asyncio.get_event_loop().call_later(1, self._member.SendRequestedChunks)
