@@ -16,6 +16,7 @@ from GlobalParams import GlobalParams
 from OfflineSendRequestedChunks import OfflineSendRequestedChunks
 from VODSendRequestedChunks import VODSendRequestedChunks
 from LEDBATSendRequestedChunks import LEDBATSendRequestedChunks
+from TCPFullSendRequestedChunks import TCPFullSendRequestedChunks
 from LEDBAT import LEDBAT
 
 class SwarmMember(object):
@@ -88,10 +89,10 @@ class SwarmMember(object):
             self._chunk_sending_alg = VODSendRequestedChunks(
                 self._swarm, self)
         else:
-            #self._chunk_sending_alg = OfflineSendRequestedChunks(
-            #    self._swarm, self)
-            self._chunk_sending_alg = LEDBATSendRequestedChunks(
-                self._swarm, self)
+            if self._is_udp:
+                self._chunk_sending_alg = LEDBATSendRequestedChunks(self._swarm, self)
+            else:
+                self._chunk_sending_alg = TCPFullSendRequestedChunks(self._swarm, self)
         self._sending_handle = None
         self._ledbat = LEDBAT()
 
@@ -125,6 +126,10 @@ class SwarmMember(object):
                      .format(self.ip_address, self.udp_port, self.remote_channel, self.local_channel))
         self.SendAndAccount(hs)
         self.is_hs_sent = True
+
+        # If this is TCP - we need to register in the TCP Proto
+        if not self._is_udp:
+            self._proto.register_member(self)
 
     def SendReplyHandshake(self):
         """Reply with a handshake when remote peer is connecting to us"""
@@ -283,6 +288,10 @@ class SwarmMember(object):
         self.set_i_requested.discard(msg_data.start_chunk)
         self._swarm.SaveVerifiedData(msg_data.start_chunk, msg_data.data)
 
+        # No need to send ACKs in TCP
+        if not self._is_udp:
+            return
+
         # Pending ACK funcionality
         if self._unacked_first is None:
             # This is a first data piece
@@ -388,6 +397,11 @@ class SwarmMember(object):
 
     def HandleAck(self, msg_ack):
         """Handle incomming ACK message"""
+
+        if not self._is_udp:
+            logging.warn("Got ACK from TCP based peer!")
+            return
+
         for x in range(msg_ack.start_chunk, msg_ack.end_chunk + 1):
             self.set_requested.discard(x)
             self.set_sent.discard(x)

@@ -122,6 +122,9 @@
     <Compile Include="SwarmMember.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="TCPFullSendRequestedChunks.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="TrackerClientProtocol.py">
       <SubType>Code</SubType>
     </Compile>
