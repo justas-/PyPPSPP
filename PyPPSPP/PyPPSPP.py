@@ -26,6 +26,7 @@ def main(args):
     loop.set_debug(False)
 
     tracker = SimpleTracker()
+    tracker.set_hive(hive)
 
     # Create connection to the tracker node
     # All this code should be hidden in the Tracekr and Swarm manager!

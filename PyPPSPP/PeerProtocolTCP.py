@@ -22,13 +22,23 @@ class PeerProtocolTCP(asyncio.Protocol):
     def connection_made(self, transport):
         self._transport = transport
         self._ip, self._port = transport.get_extra_info('peername')
-        self._hive.add_orphan_connection(self)
+
         logging.info("New TCP connection from {}:{}".format(self._ip, self._port))
+
+        list_waiting = self._hive.check_if_waiting(self._ip, self._port)
+        if list_waiting is None:
+            self._hive.add_orphan_connection(self)
+        else:
+            for swarm_id in list_waiting:
+                swarm = self._hive.get_swarm(swarm_id)
+                m = swarm.AddMember(self._ip, self._port, self)
+                if m is not None:
+                    m.SendHandshake()
 
     def send_data(self, data):
         """Wrap data in framer's header and send it"""
         packet = bytearray()
-        packet.extend(pack('>I', len(data)))
+        packet.extend(struct.pack('>I', len(data)))
         packet.extend(data)
 
         self._transport.write(packet)

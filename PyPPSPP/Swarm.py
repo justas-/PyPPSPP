@@ -15,6 +15,7 @@ from SwarmMember import SwarmMember
 from GlobalParams import GlobalParams
 from MerkleHashTree import MerkleHashTree
 from Messages import *
+from PeerProtocolTCP import PeerProtocolTCP
 
 from AbstractChunkStorage import AbstractChunkStorage
 from MemoryChunkStorage import MemoryChunkStorage
@@ -108,6 +109,14 @@ class Swarm(object):
         self._socket.sendto(data, (ip_address, port))
         self._all_data_tx += len(data)
 
+    def ConnectAndAddMember(self, ip, port):
+        logging.info("Making connection to: {}:{}".format(ip, port))
+        l = asyncio.get_event_loop()
+        coro = l.create_connection(lambda: PeerProtocolTCP(None), ip, port, sock = self._socket)
+        l.create_task(coro)
+        logging.info("foo")
+        pass
+
     def AddMember(self, ip_address, port = 6778, proto = None):
         """Add a member to a swarm and try to initialize connection"""
         
@@ -123,7 +132,7 @@ class Swarm(object):
                              .format(ip_address, port))
                 return None
 
-        m = SwarmMember(self, ip_address, port, transport)
+        m = SwarmMember(self, ip_address, port, proto)
         self._members.append(m)
 
         m._peer_num = self._next_peer_num

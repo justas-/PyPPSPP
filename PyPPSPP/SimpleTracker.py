@@ -8,7 +8,12 @@ class SimpleTracker(object):
     def __init__(self):
         self._tracekr_protocol = None
         self._myip = self._GetMyIP()
-        self._swarm = None
+        self._swarm = None      # TODO: Remove this eventually
+        self._hive = None
+
+    def set_hive(self, hive):
+        """Link tracker to the hive"""
+        self._hive = hive
 
     def SetTrackerProtocol(self, proto):
         self._tracekr_protocol = proto
@@ -37,9 +42,21 @@ class SimpleTracker(object):
             random.shuffle(mem_copy)
 
             for member in mem_copy:
-                m = self._swarm.AddMember(member[0], member[1])
-                if m != None:
-                    m.SendHandshake()
+                if self._swarm._args.tcp:
+                    # Check if we have connection already
+                    proto = self._hive.get_proto_by_address(member[0], member[1])
+                    if proto is not None:
+                        # Connection to the given peer is already there - start handshake
+                        member = self._swarm.AddMember(member[0], member[1], proto)
+                        if member is not None:
+                            member.SendHandshake()
+                    else:
+                        # Initiate a new coonection to the given peer
+                        self._hive.make_connection(member[0], member[1], self._swarm.swarm_id)
+                else:
+                    m = self._swarm.AddMember(member[0], member[1])
+                    if m != None:
+                        m.SendHandshake()
 
         else:
             logging.info("Unhandled Tracker message: {0}".format(data))
