@@ -25,6 +25,9 @@
     <Compile Include="Framer.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="TrackedSwarm.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Tracker.py">
       <SubType>Code</SubType>
     </Compile>

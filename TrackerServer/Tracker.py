@@ -1,76 +1,102 @@
 import logging
 import json
 
+import TrackedSwarm
+
 # Tracker does not care about formats - it expects deserialized objects
 # and give unserialized data for tsp to deliver.
 class Tracker(object):
     """PPSPP clients tracker"""
 
     def __init__(self):
-        self._clients = {}  # (ip, port) -> tsp
-        return None
+        self.swarms = {} # swarm_id -> TrackedSwarm
 
     def ConnectionCreated(self, tsp):
         return None
 
     def DataReceived(self, tsp, data):
         logging.debug("Tracker data received. tsp: {0}, data: {1}".format(tsp, data))
-        if data['type'] == 'register':
-            self._HandleRegister(tsp, data)
-            self._InformAboutOthers(tsp)
-            return
-        if data['type'] == 'unregister':
-            endpoint = tuple(data['endpoint'])
-            self._HandleUnregister(endpoint)
+
+        if 'swarm_id' not in data:
+            logging.warn("Received data without swarm identifier!")
             return
 
-    def ConnectionClosed(self, tsp):
-        # Find the TSP and inform everyone about lost node
-        for k, v in self._clients.items():
-            if v == tsp:
-                self._HandleUnregister(k)
+        if 'type' not in data:
+            logging.warn("Received data without type identifier!")
+            return
+
+        swarm_id = data['swarm_id']
+        type = data['type']
+
+        # Create new swarm if not present
+        if swarm_id not in self.swarms:
+            if type == 'register':
+                self.swarms[swarm_id] = TrackedSwarm.TrackedSwarm(swarm_id)
+            else:
+                logging.warn("Swarm not known and first message is not register!")
                 return
 
-    def _HandleRegister(self, tsp, data):
-        # Add new TSP to a dict of peers
-        endpoint = tuple(data['endpoint'])
-        self._clients[endpoint] = tsp
+        swarm = self.swarms[swarm_id]
 
-        logging.info("Registered node residing at: {0}".format(endpoint))
-
-        # Create message about new node
-        msg = {}
-        msg['type'] = 'new_node'
-        msg['endpoint'] = endpoint
-
-        # Send it to all other nodes
-        for other_tsp in [x for x in self._clients.values() if x != tsp]:
-             other_tsp.SendData(msg)
-
-    def _HandleUnregister(self, endpoint):
-        tsp = self._clients.pop(endpoint)
-
-        logging.info("Unregistered node residing at: {0}".format(endpoint))
-
-        # Create message about new node
-        msg = {}
-        msg['type'] = 'remove_node'
-        msg['endpoint'] = endpoint
-
-        # Send it to all other nodes
-        for other_tsp in self._clients.values():
-             other_tsp.SendData(msg)
+        if type == 'register':
+            self.handle_register(swarm, data, tsp)
+        elif type == 'unregister':
+            self.handle_unregister(swarm, data, tsp)
+        elif type == 'get_peers':
+            self.handle_get_peers(swarm, data, tsp)
+        else:
+            logging.warn("Unknown received message type!")
         
-    def _InformAboutOthers(self, who_tsp):
-        """Inform node at who_tsp about other nodes"""
+    def handle_register(self, swarm, data, proto):
+        """Register a member in the swarm.
+           Distribute this information to other members
+        """
 
-        # Create message object
+        # Add a new member
+        swarm.add_member(data['endpoint'][0], data['endpoint'][1], proto)
+
+        # Create message for other peers
         msg = {}
+        msg['swarm_id'] = swarm.swarm_id
+        msg['type'] = 'new_node'
+        msg['endpoint'] = tuple(data['endpoint'])
+
+        # Send this to all others
+        for other_peer in [x for x in swarm.members.values() if x != proto]:
+            other_peer.SendData(msg)
+
+    def handle_unregister(self, swarm, data, proto):
+        """Handle the unregister message received from the node"""
+
+        # Remove the member from the members list
+        swarm.remove_member(data['endpoint'][0], data['endpoint'][1])
+
+        # Build a leaving message
+        msg = {}
+        msg['swarm_id'] = swarm.swarm_id
+        msg['type'] = 'remove_node'
+        msg['endpoint'] = tuple(data['endpoint'])
+
+        # Inform other nodes
+        for peer in swarm.members.values():
+            peer.SendData(msg)
+
+    def handle_get_peers(self, swarm, data, proto):
+        """Handle the get peers message"""
+        
+        # Create the message object
+        msg = {}
+        msg['swarm_id'] = swarm.swarm_id
         msg['type'] = 'other_peers'
         msg['details'] = []
-        
-        # Fill in details of other nodes
-        for k in [k for k,v in self._clients.items() if v != who_tsp]:
+
+        # Update the members part in the message
+        for k in [k for k,v in swarm.members.items() if v != proto]:
             msg['details'].append(k)
 
-        who_tsp.SendData(msg)
+        # Send the final message
+        proto.SendData(msg)
+
+    def ConnectionClosed(self, tsp):
+        # TODO: Decide should we inform that node is gone if connection is gone
+        pass

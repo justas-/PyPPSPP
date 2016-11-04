@@ -36,29 +36,28 @@ def main(args):
     # TODO - check if connected to the Tracekr!
     tracker.SetTrackerProtocol(traceker_server)
 
+    ip_port = 6778
+
     if args.tcp:
         # Create a TCP server
         # TODO: This is not great
-        listen = loop.create_server(lambda: PeerProtocolTCP(hive), host = "0.0.0.0", port=6778)
+        listen = loop.create_server(lambda: PeerProtocolTCP(hive), host = "0.0.0.0", port=ip_port)
         protocol = loop.run_until_complete(listen)
     else:
         # Create an UDP server
-        listen = loop.create_datagram_endpoint(PeerProtocolUDP, local_addr=("0.0.0.0", 6778))
+        listen = loop.create_datagram_endpoint(PeerProtocolUDP, local_addr=("0.0.0.0", ip_port))
         transport, protocol = loop.run_until_complete(listen)
 
     # At this point we have a connection to the tracker and have a listening (TCP/UDP) socket
     if args.tcp:
         sw = hive.create_swarm(protocol, args)
-        tracker.SetSwarm(sw)
     else:
         # Create the swarm
         protocol.init_swarm(args)
 
-        # Inform tracker about swarm ready to receive connections
-        tracker.SetSwarm(protocol.swarm)
-
     # Register with the tracker
-    tracker.RegisterWithTracker(None)
+    tracker.register_in_tracker(args.swarmid, ip_port)
+    tracker.get_peers(args.swarmid)
 
     # Schedule wakeups to catch Ctrl+C in Win32
     # This should be fixed in Python 3.5 
@@ -81,13 +80,13 @@ def main(args):
         protocol.CloseProtocol()
         transport.close()
 
-    tracker.UnregisterWithTracker()
+    tracker.unregister_from_tracker(args.swarmid)
     loop.close()
 
 if __name__ == "__main__":
     # Set the default parameters
     defaults = {}
-    defaults['trackerip'] = "10.51.32.121"
+    defaults['trackerip'] = "127.0.0.1"
     defaults['filename'] = "C:\\PyPPSPP\\test20MB.bin"
     defaults['swarmid'] = "92e0212854257b8b4742e0dd64075471ef17caef"
     defaults['filesize'] = 20971520
