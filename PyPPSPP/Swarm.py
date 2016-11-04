@@ -109,14 +109,6 @@ class Swarm(object):
         self._socket.sendto(data, (ip_address, port))
         self._all_data_tx += len(data)
 
-    def ConnectAndAddMember(self, ip, port):
-        logging.info("Making connection to: {}:{}".format(ip, port))
-        l = asyncio.get_event_loop()
-        coro = l.create_connection(lambda: PeerProtocolTCP(None), ip, port, sock = self._socket)
-        l.create_task(coro)
-        logging.info("foo")
-        pass
-
     def AddMember(self, ip_address, port = 6778, proto = None):
         """Add a member to a swarm and try to initialize connection"""
         
@@ -296,10 +288,20 @@ class Swarm(object):
         """Get Data of indicated chunk"""
         return self._chunk_storage.GetChunkData(chunk)
 
+    def disconnect_and_remove_member(self, member):
+        """Try to disconnect and remove member from the swarm"""
+        if member not in self._members:
+            logging.warn("Trying to remove a member that is not in the swarm! Member: {}".format(member))
+            return
+
     def RemoveMember(self, member):
         """Remove indicated member from a swarm"""
         logging.info("Removing member {0} from a swarm".format(member))
-        self._members.remove(member)
+        if member in self._members:
+            self._members.remove(member)
+        else:
+            logging.info("Member {} not found in a swarm member's list"
+                         .format(member))
 
     def ReportData(self):
         """Report amount of data sent and received from each peer"""
@@ -366,13 +368,13 @@ class Swarm(object):
             fp.write(json.dumps(data))
 
     def CloseSwarm(self):
-        """Close swarm nicely"""
+        """Close the swarm and send disconnect to all members"""
         logging.info("Request to close swarm nicely!")
 
         # Send departure handshakes
         for member in self._members:
-            member.Disconnect()
-            member._save_stats()
+            member.destroy()
+        self._members.clear()
 
         self.ReportData()
                 

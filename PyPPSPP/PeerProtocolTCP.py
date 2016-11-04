@@ -79,7 +79,9 @@ class PeerProtocolTCP(asyncio.Protocol):
         if my_channel != 0:
             # Find the required member by channel ID
             if my_channel in self._members:
-                self._members[my_channel].ParseData(data)
+                member = self._members[my_channel]
+                member._swarm._all_data_rx += len(data)
+                member.ParseData(data)
             else:
                 logging.warn("Got data for channel {}, but channel is not there!".format(my_channel))
         else:
@@ -93,6 +95,7 @@ class PeerProtocolTCP(asyncio.Protocol):
             if swarm is None:
                 logging.warn("Did not find swarm with ID: {}".format(binascii.hexlify(swarm_id)))
             else:
+                swarm._all_data_rx += len(data)
                 m = swarm.AddMember(self._ip, self._port, self)
                 if m is not None:
                     m.ParseData(data)
@@ -108,12 +111,12 @@ class PeerProtocolTCP(asyncio.Protocol):
 
     def remove_all_members(self):
         """Unlink this proto from all members and remove all members from swarms"""
-        for member in self._members.values():
-            swarm = member._swarm
-            
-            member._save_stats()
-            member._proto = None
-            swarm.RemoveMember(member)
+
+        members_copy = self._members.copy()
+        for member in members_copy:
+            # Destroy the member and don't send disconnect because socket is gone
+            member.destroy(False)
+            member._swarm.RemoveMember(member)
 
     def remove_member(self, member):
         """Remove given member from a list of linked members"""

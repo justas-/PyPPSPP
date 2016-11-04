@@ -164,7 +164,6 @@ class SwarmMember(object):
         if not self._is_udp:
             self._proto.register_member(self)
 
-
     def SendAndAccount(self, binary_data):
         # Keep this check!
         if self._logger.isEnabledFor(logging.DEBUG):
@@ -318,7 +317,6 @@ class SwarmMember(object):
                 self._unacked_first = msg_data.start_chunk
                 self._unacked_last = msg_data.start_chunk
 
-            
     def BuildAck(self, min, max, ts):
         # Send ack to peer
         msg_ack = MsgAck.MsgAck()
@@ -465,9 +463,28 @@ class SwarmMember(object):
 
         self.SendAndAccount(data)
 
-    def Disconnect(self):
-        """Close association with the remote member"""
+    def destroy(self, send_disconnect = True):
+        """Destroy the object and optionally send the goodbye message"""
 
+        logging.info("Destroying member ({}). Send disconnect: {}".
+                     format(self, send_disconnect))
+
+        # Close the sending handle if present
+        if self._sending_handle is not None:
+            self._sending_handle.cancel()
+            self._sending_handle = None
+
+        # Send disconnect if reuqired
+        if send_disconnect:
+            self.send_goodbye()
+
+            if not self._is_udp:
+                self._proto.remove_member(self)
+
+        # Save the stats
+        self._save_stats()
+
+    def send_goodbye(self):
         # Build goodbye handshake
         hs = MsgHandshake.MsgHandshake()
         hs_bin = hs.BuildGoodbye()
@@ -478,9 +495,7 @@ class SwarmMember(object):
         data[4:] = hs_bin
         
         logging.info("Sending: {0}".format(hs))
-
         self.SendAndAccount(data)
-        self._proto.remove_member(self)
 
     def GetIntegrity(self, data):
         """Calculate the integirty value of given data using remote peers hash"""
