@@ -33,6 +33,8 @@ class Swarm(object):
         self.swarm_id = binascii.unhexlify(args.swarmid)
         self.live = args.live
         self.live_src = args.livesrc
+        if args.discardwnd is not None:
+            self.discard_wnd = int(args.discardwnd)
 
         self._socket = socket
         self._members = []
@@ -83,7 +85,7 @@ class Swarm(object):
             self._cont_generator = ContentGenerator()
             self._cont_generator.add_on_generated_callback(self._chunk_storage.ContentGenerated)
 
-            if live_src:
+            if self.live_src:
                 # Start generating if source
                 self._cont_generator.start_generating()
             else:

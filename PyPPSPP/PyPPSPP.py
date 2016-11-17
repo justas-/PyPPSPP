@@ -86,13 +86,14 @@ def main(args):
 if __name__ == "__main__":
     # Set the default parameters
     defaults = {}
-    defaults['trackerip'] = "127.0.0.1"
+    defaults['trackerip'] = "10.51.32.121"
     defaults['filename'] = "C:\\PyPPSPP\\test20MB.bin"
     defaults['swarmid'] = "92e0212854257b8b4742e0dd64075471ef17caef"
     defaults['filesize'] = 20971520
-    defaults['live'] = False
-    defaults['live_src'] = False
+    defaults['live'] = True
+    defaults['live_src'] = True
     defaults['tcp'] = True
+    defaults['discard_window'] = 1000
 
     # Parse command line parameters
     parser = argparse.ArgumentParser(description="Python implementation of PPSPP protocol")
@@ -105,7 +106,8 @@ if __name__ == "__main__":
     parser.add_argument("--numpeers", help="Limit the number of peers", nargs="?", type=int)
     parser.add_argument("--identifier", help="Free text that will be added to the results file", nargs="?")
     parser.add_argument("--tcp", help="Use TCP between the peers", nargs="?", default=defaults['tcp'])
-    
+    parser.add_argument('--discardwnd', help="Live discard window size", nargs='?', default=defaults['discard_window'])
+
     # Start the program
     args = parser.parse_args()
     main(args)

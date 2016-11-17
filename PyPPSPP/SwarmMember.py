@@ -102,6 +102,8 @@ class SwarmMember(object):
         # Create a handshake message
         hs = MsgHandshake.MsgHandshake()
         hs.swarm = self._swarm.swarm_id
+        if self._swarm.discard_wnd is not None:
+            hs.live_discard_window = self._swarm.discard_wnd
         bm = hs.BuildBinaryMessage()
 
         # Assign a local channel ID
