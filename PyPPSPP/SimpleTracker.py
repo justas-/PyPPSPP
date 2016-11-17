@@ -7,16 +7,18 @@ import ALTOInterface
 class SimpleTracker(object):
     """This class abstracts a simple tracket. It can later be replaced with PPSP-TP"""
 
-    def __init__(self, args):
+    def __init__(self):
         self._tracekr_protocol = None
-        self._myip = self._GetMyIP()
-        self._swarm = None
-        self._use_alto = args.alto
+        self._myip = self._get_my_ip()
+        self._hive = None
+        self._use_alto = False
         self._alto = None
-        if args.alto:
-            self._alto = ALTOInterface.ALTOInterface("http://10.0.102.4:5000")
-            self._alto.get_costmap()
-            self._alto.get_networkmap()
+
+    def set_use_alto(self):
+        self._use_alto = True
+        self._alto = ALTOInterface.ALTOInterface("http://10.0.102.4:5000")
+        self._alto.get_costmap()
+        self._alto.get_networkmap()
 
     def set_hive(self, hive):
         """Link tracker to the hive"""
@@ -87,26 +89,26 @@ class SimpleTracker(object):
                 mem_copy = data['details']
                 random.shuffle(mem_copy)
 
-        for member in mem_copy:
-            if swarm._args.tcp:
-                # Check if we have connection already
-                proto = self._hive.get_proto_by_address(member[0], member[1])
-                if proto is not None:
-                    # Connection to the given peer is already there - start handshake
-                    member = swarm.AddMember(member[0], member[1], proto)
-                    if member is not None:
-                        member.SendHandshake()
+            for member in mem_copy:
+                if swarm._args.tcp:
+                    # Check if we have connection already
+                    proto = self._hive.get_proto_by_address(member[0], member[1])
+                    if proto is not None:
+                        # Connection to the given peer is already there - start handshake
+                        member = swarm.AddMember(member[0], member[1], proto)
+                        if member is not None:
+                            member.SendHandshake()
+                    else:
+                        # Initiate a new coonection to the given peer
+                        self._hive.make_connection(member[0], member[1], swarm.swarm_id)
                 else:
-                    # Initiate a new coonection to the given peer
-                    self._hive.make_connection(member[0], member[1], swarm.swarm_id)
-            else:
-                m = swarm.AddMember(member[0], member[1])
-                if m != None:
-                    m.SendHandshake()
-                for member in mem_copy:
-                    m = self._swarm.AddMember(member[0], member[1])
+                    m = swarm.AddMember(member[0], member[1])
                     if m != None:
                         m.SendHandshake()
+                    for member in mem_copy:
+                        m = self._swarm.AddMember(member[0], member[1])
+                        if m != None:
+                            m.SendHandshake()
 
     def register_in_tracker(self, swarm_id: str, port: int):
         """Register with the tracker"""

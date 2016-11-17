@@ -4,6 +4,7 @@ import os
 import socket
 import argparse
 import time
+import sys
 
 from PeerProtocolUDP import PeerProtocolUDP
 from PeerProtocolTCP import PeerProtocolTCP
@@ -12,10 +13,7 @@ from SimpleTracker import SimpleTracker
 from Hive import Hive
 
 # Configure logger
-host = socket.gethostname() 
-idstr = 'runlog_'+host+'_'+str(int(time.time()))+'.log'
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s', filename='/var/log/'+idstr)
-logging.info ("PyPPSPP starting")
+
 
 def main(args):
     logging.info("PPSPP Parameters:\n\tTracker: {};\n\tFilename: {};\n\tFilesize: {}B;\n\tSwarm: {};\n\tLive: {};\n\tLive Source: {};\n\tAlto: {};\n\tNum peers: {};\n\tIdentifier: {};"
@@ -29,6 +27,8 @@ def main(args):
     loop.set_debug(False)
 
     tracker = SimpleTracker()
+    if args.alto:
+        tracker.set_use_alto()
     tracker.set_hive(hive)
 
     # Create connection to the tracker node
@@ -88,6 +88,28 @@ def main(args):
     logging.shutdown()
 
 if __name__ == "__main__":
+
+    # LOG TO FILE
+
+    LOG_TO_FILE = False
+    output_dir = ""
+    if sys.platform == "linux" or sys.platform == "linux2":
+        output_dir += "/tmp/"
+    elif sys.platform == "win32":
+        output_dir += "C:\\test\\"
+    else:
+        raise BaseException("Unknown platform")
+
+    result_id = socket.gethostname()+'_'+str(int(time.time()))
+    
+    if LOG_TO_FILE:
+        idstr = 'runlog_'+result_id+'.log'
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s', filename=output_dir+idstr)
+    else:
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
+
+    logging.info ("PyPPSPP starting")
+
     # Set the default parameters
     defaults = {}
     defaults['trackerip'] = "10.51.32.121"
@@ -98,6 +120,7 @@ if __name__ == "__main__":
     defaults['live_src'] = True
     defaults['tcp'] = True
     defaults['discard_window'] = 1000
+    defaults['alto'] = False
 
     # Parse command line parameters
     parser = argparse.ArgumentParser(description="Python implementation of PPSPP protocol")
@@ -111,7 +134,11 @@ if __name__ == "__main__":
     parser.add_argument("--identifier", help="Free text that will be added to the results file", nargs="?")
     parser.add_argument("--tcp", help="Use TCP between the peers", nargs="?", default=defaults['tcp'])
     parser.add_argument('--discardwnd', help="Live discard window size", nargs='?', default=defaults['discard_window'])
-
+    parser.add_argument('--alto', help="Use ALTO server to rank peers", nargs='?', type=bool, default=defaults['alto'])
     # Start the program
     args = parser.parse_args()
+
+    args.result_id = result_id
+    args.output_dir = output_dir
+    
     main(args)

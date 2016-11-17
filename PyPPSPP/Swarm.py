@@ -357,17 +357,9 @@ class Swarm(object):
 
     def _log_data(self, data):
         """Log all data from the data dict to unique file"""
-        location = ""
-        if sys.platform == "linux" or sys.platform == "linux2":
-            location = "/tmp/"
-        elif sys.platform == "win32":
-            location = "C:\\test\\"
-        else:
-            raise BaseException("Unknown platform")
-
-        hostname = socket.gethostname()
-        filename = hostname+"_"+str(int(time.time()))+".dat"
-        with open(location+filename,"w") as fp:
+        
+        result_file = self._args.output_dir+'results_'+self._args.result_id+".dat"
+        with open(result_file,"w") as fp:
             fp.write(json.dumps(data))
         logging.info("Wrote logs to file: {}".format(filename))
 
