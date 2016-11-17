@@ -3,18 +3,21 @@ import asyncio
 import os
 import socket
 import argparse
+import time
 
 from PeerProtocol import PeerProtocol
 from TrackerClientProtocol import TrackerClientProtocol
 from SimpleTracker import SimpleTracker
 
 # Configure logger
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
+host = socket.gethostname() 
+idstr = 'runlog_'+host+'_'+str(int(time.time()))+'.log'
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s', filename='/var/log/'+idstr)
 logging.info ("PyPPSPP starting")
 
 def main(args):
-    logging.info("PPSPP Parameters:\n\tTracker: {};\n\tFilename: {};\n\tFilesize: {}B;\n\tSwarm: {};\n\tLive: {};\n\tLive Source: {};"
-                 .format(args.tracker, args.filename, args.filesize, args.swarmid, args.live, args.livesrc))
+    logging.info("PPSPP Parameters:\n\tTracker: {};\n\tFilename: {};\n\tFilesize: {}B;\n\tSwarm: {};\n\tLive: {};\n\tLive Source: {};\n\tAlto: {};\n\tNum peers: {};\n\tIdentifier: {};"
+                 .format(args.tracker, args.filename, args.filesize, args.swarmid, args.live, args.livesrc, args.alto, args.numpeers, args.identifier))
 
     # Start minimalistic event loop
     loop = asyncio.get_event_loop()
@@ -71,6 +74,7 @@ def main(args):
     # Clean-up
     transport.close()
     loop.close()
+    logging.shutdown()
 
 if __name__ == "__main__":
     # Set the default parameters

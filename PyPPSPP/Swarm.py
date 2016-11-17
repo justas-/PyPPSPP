@@ -353,8 +353,10 @@ class Swarm(object):
             raise BaseException("Unknown platform")
 
         hostname = socket.gethostname()
-        with open(location+hostname+"_"+str(int(time.time()))+".dat","w") as fp:
+        filename = hostname+"_"+str(int(time.time()))+".dat"
+        with open(location+filename,"w") as fp:
             fp.write(json.dumps(data))
+        logging.info("Wrote logs to file: {}".format(filename))
 
     def CloseSwarm(self):
         """Close swarm nicely"""
