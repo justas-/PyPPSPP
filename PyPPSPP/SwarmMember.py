@@ -16,12 +16,13 @@ from GlobalParams import GlobalParams
 from OfflineSendRequestedChunks import OfflineSendRequestedChunks
 from VODSendRequestedChunks import VODSendRequestedChunks
 from LEDBATSendRequestedChunks import LEDBATSendRequestedChunks
+from TCPFullSendRequestedChunks import TCPFullSendRequestedChunks
 from LEDBAT import LEDBAT
 
 class SwarmMember(object):
     """A class used to represent member in the swarm"""
 
-    def __init__(self, swarm, ip_address, udp_port = 6778):
+    def __init__(self, swarm, ip_address, udp_port = 6778, proto = None):
         """Init object representing the remote peer"""
         # Logger for fast access
         self._logger = logging.getLogger()
@@ -29,6 +30,10 @@ class SwarmMember(object):
         self._swarm = swarm
         self.ip_address = ip_address
         self.udp_port = udp_port
+        self._proto = proto
+        self._is_udp = True
+        if proto is not None:
+            self._is_udp = False
 
         # Channels for multiplexing
         self.local_channel = 0
@@ -84,10 +89,10 @@ class SwarmMember(object):
             self._chunk_sending_alg = VODSendRequestedChunks(
                 self._swarm, self)
         else:
-            #self._chunk_sending_alg = OfflineSendRequestedChunks(
-            #    self._swarm, self)
-            self._chunk_sending_alg = LEDBATSendRequestedChunks(
-                self._swarm, self)
+            if self._is_udp:
+                self._chunk_sending_alg = LEDBATSendRequestedChunks(self._swarm, self)
+            else:
+                self._chunk_sending_alg = TCPFullSendRequestedChunks(self._swarm, self)
         self._sending_handle = None
         self._ledbat = LEDBAT()
 
@@ -97,6 +102,8 @@ class SwarmMember(object):
         # Create a handshake message
         hs = MsgHandshake.MsgHandshake()
         hs.swarm = self._swarm.swarm_id
+        if self._swarm.discard_wnd is not None:
+            hs.live_discard_window = self._swarm.discard_wnd
         bm = hs.BuildBinaryMessage()
 
         # Assign a local channel ID
@@ -121,6 +128,10 @@ class SwarmMember(object):
                      .format(self.ip_address, self.udp_port, self.remote_channel, self.local_channel))
         self.SendAndAccount(hs)
         self.is_hs_sent = True
+
+        # If this is TCP - we need to register in the TCP Proto
+        if not self._is_udp:
+            self._proto.register_member(self)
 
     def SendReplyHandshake(self):
         """Reply with a handshake when remote peer is connecting to us"""
@@ -151,13 +162,24 @@ class SwarmMember(object):
 
         self.SendAndAccount(hs)
 
+        # If this is TCP - we need to register in the TCP Proto
+        if not self._is_udp:
+            self._proto.register_member(self)
+
     def SendAndAccount(self, binary_data):
         # Keep this check!
         if self._logger.isEnabledFor(logging.DEBUG):
             logging.debug("!! Sending BIN data: {0}".format(binascii.hexlify(binary_data)))
 
-        self._swarm.SendData(self.ip_address, self.udp_port, binary_data)
-        self._total_data_tx = self._total_data_tx + len(binary_data)
+        datalen = len(binary_data)
+
+        if self._is_udp:
+            self._swarm.SendData(self.ip_address, self.udp_port, binary_data)
+        else:
+            self._proto.send_data(binary_data)
+            self._swarm._all_data_tx += datalen
+
+        self._total_data_tx += datalen
         
     def GotKeepalive(self):
         """Sometimes remote peer might send us keepalive only"""
@@ -267,6 +289,10 @@ class SwarmMember(object):
         self.set_i_requested.discard(msg_data.start_chunk)
         self._swarm.SaveVerifiedData(msg_data.start_chunk, msg_data.data)
 
+        # No need to send ACKs in TCP
+        if not self._is_udp:
+            return
+
         # Pending ACK funcionality
         if self._unacked_first is None:
             # This is a first data piece
@@ -293,7 +319,6 @@ class SwarmMember(object):
                 self._unacked_first = msg_data.start_chunk
                 self._unacked_last = msg_data.start_chunk
 
-            
     def BuildAck(self, min, max, ts):
         # Send ack to peer
         msg_ack = MsgAck.MsgAck()
@@ -372,6 +397,11 @@ class SwarmMember(object):
 
     def HandleAck(self, msg_ack):
         """Handle incomming ACK message"""
+
+        if not self._is_udp:
+            logging.warn("Got ACK from TCP based peer!")
+            return
+
         for x in range(msg_ack.start_chunk, msg_ack.end_chunk + 1):
             self.set_requested.discard(x)
             self.set_sent.discard(x)
@@ -435,9 +465,28 @@ class SwarmMember(object):
 
         self.SendAndAccount(data)
 
-    def Disconnect(self):
-        """Close association with the remote member"""
+    def destroy(self, send_disconnect = True):
+        """Destroy the object and optionally send the goodbye message"""
 
+        logging.info("Destroying member ({}). Send disconnect: {}".
+                     format(self, send_disconnect))
+
+        # Close the sending handle if present
+        if self._sending_handle is not None:
+            self._sending_handle.cancel()
+            self._sending_handle = None
+
+        # Send disconnect if reuqired
+        if send_disconnect:
+            self.send_goodbye()
+
+            if not self._is_udp:
+                self._proto.remove_member(self)
+
+        # Save the stats
+        self._save_stats()
+
+    def send_goodbye(self):
         # Build goodbye handshake
         hs = MsgHandshake.MsgHandshake()
         hs_bin = hs.BuildGoodbye()

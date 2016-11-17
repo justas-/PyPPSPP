@@ -15,6 +15,7 @@ from SwarmMember import SwarmMember
 from GlobalParams import GlobalParams
 from MerkleHashTree import MerkleHashTree
 from Messages import *
+from PeerProtocolTCP import PeerProtocolTCP
 
 from AbstractChunkStorage import AbstractChunkStorage
 from MemoryChunkStorage import MemoryChunkStorage
@@ -32,6 +33,8 @@ class Swarm(object):
         self.swarm_id = binascii.unhexlify(args.swarmid)
         self.live = args.live
         self.live_src = args.livesrc
+        if args.discardwnd is not None:
+            self.discard_wnd = int(args.discardwnd)
 
         self._socket = socket
         self._members = []
@@ -82,7 +85,7 @@ class Swarm(object):
             self._cont_generator = ContentGenerator()
             self._cont_generator.add_on_generated_callback(self._chunk_storage.ContentGenerated)
 
-            if live_src:
+            if self.live_src:
                 # Start generating if source
                 self._cont_generator.start_generating()
             else:
@@ -108,7 +111,7 @@ class Swarm(object):
         self._socket.sendto(data, (ip_address, port))
         self._all_data_tx += len(data)
 
-    def AddMember(self, ip_address, port = 6778):
+    def AddMember(self, ip_address, port = 6778, proto = None):
         """Add a member to a swarm and try to initialize connection"""
         
         if self._max_peers is not None and len(self._members) >= self._max_peers:
@@ -123,7 +126,7 @@ class Swarm(object):
                              .format(ip_address, port))
                 return None
 
-        m = SwarmMember(self, ip_address, port)
+        m = SwarmMember(self, ip_address, port, proto)
         self._members.append(m)
 
         m._peer_num = self._next_peer_num
@@ -287,10 +290,20 @@ class Swarm(object):
         """Get Data of indicated chunk"""
         return self._chunk_storage.GetChunkData(chunk)
 
+    def disconnect_and_remove_member(self, member):
+        """Try to disconnect and remove member from the swarm"""
+        if member not in self._members:
+            logging.warn("Trying to remove a member that is not in the swarm! Member: {}".format(member))
+            return
+
     def RemoveMember(self, member):
         """Remove indicated member from a swarm"""
         logging.info("Removing member {0} from a swarm".format(member))
-        self._members.remove(member)
+        if member in self._members:
+            self._members.remove(member)
+        else:
+            logging.info("Member {} not found in a swarm member's list"
+                         .format(member))
 
     def ReportData(self):
         """Report amount of data sent and received from each peer"""
@@ -359,13 +372,13 @@ class Swarm(object):
         logging.info("Wrote logs to file: {}".format(filename))
 
     def CloseSwarm(self):
-        """Close swarm nicely"""
+        """Close the swarm and send disconnect to all members"""
         logging.info("Request to close swarm nicely!")
 
         # Send departure handshakes
         for member in self._members:
-            member.Disconnect()
-            member._save_stats()
+            member.destroy()
+        self._members.clear()
 
         self.ReportData()
                 

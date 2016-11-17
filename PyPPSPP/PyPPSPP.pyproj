@@ -43,6 +43,9 @@
     <Compile Include="GlobalParams.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Hive.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="LEDBAT.py">
       <SubType>Code</SubType>
     </Compile>
@@ -106,7 +109,10 @@
     <Compile Include="OfflineSendRequestedChunks.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="PeerProtocol.py">
+    <Compile Include="PeerProtocolTCP.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="PeerProtocolUDP.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="PyPPSPP.py" />
@@ -117,6 +123,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="SwarmMember.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="TCPFullSendRequestedChunks.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="TrackerClientProtocol.py">
