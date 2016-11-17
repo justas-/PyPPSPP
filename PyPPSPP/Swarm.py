@@ -395,6 +395,9 @@ class Swarm(object):
         report['run_args'] = vars(self._args)
         report['member_stats'] = self._member_stats
 
+        if self.live and not self.live_src:
+            report['content_consumer'] = self._cont_consumer.get_stats()
+
         self._log_data(report)
         ############################
 

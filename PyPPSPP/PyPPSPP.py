@@ -118,7 +118,7 @@ if __name__ == "__main__":
     defaults['swarmid'] = "92e0212854257b8b4742e0dd64075471ef17caef"
     defaults['filesize'] = 20971520
     defaults['live'] = True
-    defaults['live_src'] = True
+    defaults['live_src'] = False
     defaults['tcp'] = True
     defaults['discard_window'] = 1000
     defaults['alto'] = False

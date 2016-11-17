@@ -2,6 +2,7 @@ import asyncio
 import logging
 import pickle
 import queue
+import time
 
 from Framer import Framer
 
@@ -15,15 +16,22 @@ class ContentConsumer(object):
         self._handle = None
         self._framer = Framer(self.__data_framed, av_framer = True)
         self._q = queue.Queue()
+        self._biggest_seen_chunk = 0    # Biggest chunk ID ever seen
+        self._next_frame = 1            # Next chunk that should go to framer
+
+        # Stats
         self._frames_consumed = 0       # Number of A/V frames shown
         self._frames_missed = 0         # Number of frames that was not there when needed
-        self._next_frame = 1            # Next chunk that should go to framer
-        self._biggest_seen_chunk = 0    # Biggest chunk ID ever seen
+        self._start_time = 0
+        self._first_frame_time = 0
+        
 
     def StartConsuming(self):
         # Here we do not wait for q to fill, but we could if we wanted...
         if self._handle != None:
             raise Exception
+
+        self._start_time = time.time()
 
         self._handle = self._loop.call_later(1 / self._fps, self.__consume)
 
@@ -67,16 +75,35 @@ class ContentConsumer(object):
 
     def __consume(self):
         """Consume the next frame as given by callback"""
+
         try:
             av_data = self._q.get(block = False)
+
+            # Make first frame timestamp if required
+            if self._first_frame_time == 0:
+                self._first_frame_time = time.time()
+
             self._frames_consumed += 1
             if self._frames_consumed % 25 == 0:
                 logging.info("Got AV data! Seq: {0}; Video size: {1}; Audio size: {2}"
                          .format(av_data['id'], len(av_data['vd']), len(av_data['ad'])))
 
         except queue.Empty:
-            self._frames_missed += 1
-            pass
+            # Do not count missed frames until first is shown
+            if self._first_frame_time == 0:
+                pass
+            else:
+                self._frames_missed += 1
             
         # Reschedule the call
         self._handle = self._loop.call_later(1 / self._fps, self.__consume)
+
+    def get_stats(self):
+        """Create statistics object"""
+        stat = {}
+        stat['frames_consumed'] = self._frames_consumed
+        stat['frames_missed'] = self._frames_missed
+        stat['content_first_frame'] = self._first_frame_time
+        stat['content_start_time'] = self._start_time
+
+        return stat
