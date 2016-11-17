@@ -85,7 +85,7 @@ class MsgHandshake(object):
         # [7] Live discard window
         # Not according to specs!!!
         if self.live_discard_window != 0:
-            pack_into('>ci', wb, offset, 7, self.live_discard_window)
+            pack_into('>ci', wb, offset, bytes([7]), self.live_discard_window)
             offset = offset + 5
 
         # [8] Supported messages
