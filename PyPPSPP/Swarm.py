@@ -361,9 +361,9 @@ class Swarm(object):
         result_file = self._args.output_dir+'results_'+self._args.result_id+".dat"
         with open(result_file,"w") as fp:
             fp.write(json.dumps(data))
-        logging.info("Wrote logs to file: {}".format(filename))
+        logging.info("Wrote logs to file: {}".format(result_file))
 
-    def CloseSwarm(self):
+    def close_swarm(self):
         """Close the swarm and send disconnect to all members"""
         logging.info("Request to close swarm nicely!")
 

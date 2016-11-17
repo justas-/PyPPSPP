@@ -71,5 +71,5 @@ class PeerProtocolUDP(asyncio.DatagramProtocol):
         logging.warn("PEER PROTOCL IS DRAINED BELOW THE HIGH-WATER MARK")
 
     def CloseProtocol(self):
-        self.swarm.CloseSwarm()
+        self.swarm.close_swarm()
         

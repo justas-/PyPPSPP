@@ -78,6 +78,7 @@ def main(args):
 
     # Inform protocol to close
     if args.tcp:
+        hive.close_all_swarms()
         protocol.close()
     else:
         protocol.CloseProtocol()

@@ -81,3 +81,11 @@ class Hive(object):
             return self._pending_connection[(ip, port)]
         else:
             return None
+
+    def close_all_swarms(self):
+        """Close all swarms in the Hive"""
+
+        for swarm in self._swarms.values():
+            swarm.close_swarm()
+
+        self._swarms.clear()
