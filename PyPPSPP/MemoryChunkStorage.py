@@ -188,8 +188,11 @@ class MemoryChunkStorage(AbstractChunkStorage):
         # Inject into system
         self.inject_chunks(chunks)
 
-        # Inform others about new data
-        self.build_distribute_have_live_src()
+        # Reduce the number of have messages
+        self._have_outstanding += len(chunks)
+        if self._have_outstanding >= 100:
+            self.build_distribute_have_live_src()
+            self._have_outstanding = 0
 
     def build_distribute_have_live_src(self):
         """Update have ranges and send them to the connected peers.

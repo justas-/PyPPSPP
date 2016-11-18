@@ -76,6 +76,7 @@ class ContentGenerator(object):
             f['vd'] = int_n * bytes([192]) # video data
 
         f['ad'] = int(audio_sample['size']) * bytes([192]) # audio data
+        f['in'] = 'Quick Brow Fox!'
 
         # Send video frame
         self.__call_on_generated(f)

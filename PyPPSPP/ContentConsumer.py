@@ -116,8 +116,8 @@ class ContentConsumer(object):
 
             self._frames_consumed += 1
             if self._frames_consumed % 25 == 0:
-                logging.info("Got AV data! Seq: {0}; Video size: {1}; Audio size: {2}"
-                         .format(av_data['id'], len(av_data['vd']), len(av_data['ad'])))
+                logging.info("Got AV data! Seq: {}; Video size: {}; Audio size: {}; Valid: {}"
+                         .format(av_data['id'], len(av_data['vd']), len(av_data['ad']), av_data['in']))
 
         except queue.Empty:
             # Do not count missed frames until first is shown
