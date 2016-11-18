@@ -4,6 +4,7 @@ import pickle
 import queue
 import time
 
+from GlobalParams import GlobalParams
 from Framer import Framer
 
 class ContentConsumer(object):
@@ -66,6 +67,32 @@ class ContentConsumer(object):
                     break
                 else:
                     self._framer.DataReceived(chunk)
+                    self._next_frame += 1
+
+    def data_received_with_de(self, chunk_id, chunk_data):
+        """Extrack data from chunks with DiscardEligible marks"""
+
+        # Ensure that we got the exact required amount of data
+        assert len(chunk_data) == GlobalParams.chunk_size
+
+        # Track the biggest seen id
+        if chunk_id > self._biggest_seen_chunk:
+            self._biggest_seen_chunk = chunk_id
+        
+        # Feed the framer as required
+        if chunk_id == self._next_frame:
+            self._framer.DataReceived(chunk_data[1:])
+            self._next_frame += 1
+
+        # If we have a gap - try to fill it
+        if self._biggest_seen_chunk > self._next_frame:
+            while True:
+                chunk = self._swarm._chunk_storage.GetChunkData(self._next_frame, ignore_missing = True)
+                if chunk == None:
+                    # We do not have next chunk yet
+                    break
+                else:
+                    self._framer.DataReceived(chunk[1:])
                     self._next_frame += 1
         
     def __data_framed(self, data):

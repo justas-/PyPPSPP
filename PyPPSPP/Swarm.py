@@ -262,7 +262,8 @@ class Swarm(object):
         
         # Feed data to live video consumer if required
         if self.live and not self.live_src:
-            self._cont_consumer.DataReceived(chunk_id, data)
+            #self._cont_consumer.DataReceived(chunk_id, data)
+            self._cont_consumer.data_received_with_de(chunk_id, data)
 
         # Run post complete actions (not any() is faster than len() == 0)
         if not any(self.set_missing):
