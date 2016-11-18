@@ -43,7 +43,11 @@ class ContentConsumer(object):
         self._handle.cancel()
         self._handle = None
 
-        pct_missed = (self._frames_missed / (self._frames_consumed + self._frames_missed)) * 100
+        if self._frames_consumed == 0 and self._frames_missed == 0:
+            pct_missed = 100
+        else:
+            pct_missed = (self._frames_missed / (self._frames_consumed + self._frames_missed)) * 100
+
         pct_showed = 100 - pct_missed
         logging.info("Frames showed {} ({:.2f}%) / Frames missed {} ({:.2f}%)"
                      .format(self._frames_consumed, pct_showed, self._frames_missed, pct_missed))

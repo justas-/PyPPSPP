@@ -163,7 +163,7 @@ class MemoryChunkStorage(AbstractChunkStorage):
 
                 # Packe the data
                 chunk.extend(msg_bytes[data_packed:data_packed+GlobalParams.chunk_size - 1])
-                chunk.append(chunk)
+                chunks.append(chunk)
 
                 # Update number of bytes packed
                 data_packed += GlobalParams.chunk_size - 1
@@ -181,7 +181,7 @@ class MemoryChunkStorage(AbstractChunkStorage):
                 chunk.extend(msg_bytes[data_packed:])
 
                 # Add padding
-                chunk.extend((GlobalParams.chunk_size - 1 - len(chunk)) * bytes([0]))
+                chunk.extend((GlobalParams.chunk_size - len(chunk)) * bytes([0]))
                 chunks.append(chunk)
                 data_packed = all_data
 
@@ -203,6 +203,9 @@ class MemoryChunkStorage(AbstractChunkStorage):
         """Inject [chunks] into the system"""
 
         for chunk in chunks:
+            # Ensure the correct size of data before sending it into the system
+            assert len(chunk) == GlobalParams.chunk_size
+
             self._last_inject_id += 1
             self._chunks[self._last_inject_id] = chunk
             self._swarm.set_have.add(self._last_inject_id)
