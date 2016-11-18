@@ -102,6 +102,8 @@ class PeerProtocolTCP(asyncio.Protocol):
 
     def register_member(self, member):
         """Link a member object to a connection"""
+        logging.info('Registering member: {}'.format(member))
+
         if member.local_channel in self._members:
             logging.warn("Trying to register the same meber twice!")
             return
@@ -113,10 +115,12 @@ class PeerProtocolTCP(asyncio.Protocol):
         """Unlink this proto from all members and remove all members from swarms"""
 
         members_copy = self._members.copy()
-        for member in members_copy:
+        for member in members_copy.values():
             # Destroy the member and don't send disconnect because socket is gone
             member.destroy(False)
             member._swarm.RemoveMember(member)
+
+        self._members.clear()
 
     def remove_member(self, member):
         """Remove given member from a list of linked members"""
