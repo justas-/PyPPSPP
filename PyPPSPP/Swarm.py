@@ -398,6 +398,7 @@ class Swarm(object):
         report['member_stats'] = self._member_stats
 
         if self.live and not self.live_src:
+            self._cont_consumer.StopConsuming()
             report['content_consumer'] = self._cont_consumer.get_stats()
 
         self._log_data(report)
@@ -405,7 +406,3 @@ class Swarm(object):
 
         # Close chunk storage
         self._chunk_storage.CloseStorage()
-
-        # If live - print data
-        if self.live and not self.live_src:
-            self._cont_consumer.StopConsuming()
