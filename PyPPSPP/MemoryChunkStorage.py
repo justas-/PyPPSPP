@@ -114,21 +114,98 @@ class MemoryChunkStorage(AbstractChunkStorage):
                 data_packed = all_data
 
         # Inject into system
-        first_ch = self._last_inject_id + 1
-        for pack in packs:
-            self._last_inject_id += 1
-            self._chunks[self._last_inject_id] = pack
-            self._swarm.set_have.add(self._last_inject_id)
-        last_ch = self._last_inject_id
+        self.inject_chunks(packs)
 
         # Reduce the number of have messages
         self._have_outstanding += len(packs)
         if self._have_outstanding >= 100:
-            self.BuildHaveRangesLiveSrc()
-            logging.info("Sending Have: {} to connected peers. Outstanding: {}"
-                         .format(self._swarm._have_ranges, self._have_outstanding))
-            self._swarm.SendHaveToMembers()
+            self.build_distribute_have_live_src()
             self._have_outstanding = 0
+
+    def pack_data_with_de(self, data):
+        """Pickle and pack data using DiscardEligible format"""
+        # Every first packet from pickled data will be marked as
+        # not eligible for discarding. This way we can lock to
+        # meaningful data in the live-receiver. Eligibility for
+        # discard is indicated by [0/1] as the first byte.
+
+        # Pickle the data
+        binary_data = pickle.dumps(data)
+        data_size = len(binary_data)
+
+        # Prevent overflow
+        assert data_size < 4294967295 # 2^32 - 1
+
+        # Append length indicator in front
+        msg_bytes = bytearray()
+        msg_bytes.extend(struct.pack('>I', data_size))
+        msg_bytes.extend(binary_data)
+
+        # Pack data into ChunkSize chunks
+        chunks = []
+
+        first_packed = False
+        data_packed = 0
+        all_data = 4 + data_size # bytes for len + data
+        
+        while data_packed < all_data:
+            chunk = bytearray()
+
+            if all_data - data_packed > GlobalParams.chunk_size - 1:
+                # We have enough data to fill one full packet
+                
+                # Check if this chunk is eligible for discard
+                if first_packed:
+                    chunk.extend(bytes([1])) # Eligible for discard
+                else:
+                    chunk.extend(bytes([0])) # Not eligible for discard
+                    first_packed = True
+
+                # Packe the data
+                chunk.extend(msg_bytes[data_packed:data_packed+GlobalParams.chunk_size - 1])
+                chunk.append(chunk)
+
+                # Update number of bytes packed
+                data_packed += GlobalParams.chunk_size - 1
+            else:
+                # Not enough data to fill all packet - will pad with 0
+
+                # Check if this chunk is eligible for discard
+                if first_packed:
+                    chunk.extend(bytes([1])) # Eligible for discard
+                else:
+                    chunk.extend(bytes([0])) # Not eligible for discard
+                    first_packed = True
+
+                # Add data
+                chunk.extend(msg_bytes[data_packed:])
+
+                # Add padding
+                chunk.extend((GlobalParams.chunk_size - 1 - len(chunk)) * bytes([0]))
+                chunks.append(chunk)
+                data_packed = all_data
+
+        # Inject into system
+        self.inject_chunks(chunks)
+
+        # Inform others about new data
+        self.build_distribute_have_live_src()
+
+    def build_distribute_have_live_src(self):
+        """Update have ranges and send them to the connected peers.
+           This alg is optimized for live source use case!
+        """
+        self.BuildHaveRangesLiveSrc()
+        logging.info("Sending HAVE({}) to connected peers ()".format(self._swarm._have_ranges))
+        self._swarm.SendHaveToMembers()
+
+    def inject_chunks(self, chunks):
+        """Inject [chunks] into the system"""
+
+        for chunk in chunks:
+            self._last_inject_id += 1
+            self._chunks[self._last_inject_id] = chunk
+            self._swarm.set_have.add(self._last_inject_id)
 
     def BuildHaveRangesLiveSrc(self):
         # Build have ranges in Live Source
