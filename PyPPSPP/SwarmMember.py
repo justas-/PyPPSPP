@@ -49,6 +49,8 @@ class SwarmMember(object):
         self.hash_type = None
         self.live_discard_wnd = None
 
+        self._max_have_value = 0
+
         # Did we choke or are we choked
         self.local_choked = False
         self.remote_choked = False
@@ -269,7 +271,14 @@ class SwarmMember(object):
             logging.info("FROM > {0} > HAVE: {1}".format(self._peer_num, msg_have))
 
         if self._swarm.live and self.live_discard_wnd is not None:
-            logging.info("Have from data with Live discard wnd")
+            # Check for new max
+            if msg_have.end_chunk > self._max_have_value:
+                self._max_have_value = msg_have.end_chunk
+
+                # Discard according to live window if required
+                if any(self.set_have):
+                    for chunk_id in range(min(self.set_have), self._max_have_value - self.live_discard_wnd):
+                        self.set_have.discard(chunk_id)
         
         for i in range(msg_have.start_chunk, msg_have.end_chunk+1):
             self.set_have.add(i)
