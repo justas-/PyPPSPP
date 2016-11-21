@@ -22,6 +22,8 @@ class ContentConsumer(object):
         self._next_frame = 1            # Next chunk that should go to framer
         self._consume_thread = threading.Thread(target=self.thread_entry, name='cont_consume')
         self._stop_thread = False
+        self._consumer_locked = False   # Is the consumer locked to the right position in the datastream
+        self._allow_tune_in = False     # Allow the client to tune-in (see method for explanation)
 
         self._frames_consumed = 0       # Number of A/V frames shown
         self._frames_missed = 0         # Number of frames that was not there when needed
@@ -51,7 +53,19 @@ class ContentConsumer(object):
             logging.warn('Except in consume thread!')
             pass
 
-    def StartConsuming(self):
+    def allow_tune_in(self):
+        """Allow the client to tune-in into the live broadcast.
+           This way the client will start recreating frames from the
+           first place it can identify start of a valid frame, instead
+           of waiting for the first frame in the live stream.
+        """
+        if self._consume_thread.is_alive():
+            logging.error('Canot enable tune in in the already running content consumer!')
+            return
+        
+        self._allow_tune_in = True 
+
+    def start_consuming(self):
         # Here we do not wait for q to fill, but we could if we wanted...
         if self._consume_thread.is_alive():
             logging.error('Content consuming thread is already alive!')
@@ -59,7 +73,7 @@ class ContentConsumer(object):
 
         self._consume_thread.start()
 
-    def StopConsuming(self):
+    def stop_consuming(self):
         if not self._consume_thread.is_alive():
             logging.error('Content consuming thread is already stopped!')
             return
@@ -86,7 +100,7 @@ class ContentConsumer(object):
                         self._consume_run,
                         self._first_frame_time - self._start_time))
 
-    def DataReceived(self, chunk_id, data):
+    def data_received(self, chunk_id, data):
         # Track the biggest seen id
         if chunk_id > self._biggest_seen_chunk:
             self._biggest_seen_chunk = chunk_id
@@ -113,10 +127,27 @@ class ContentConsumer(object):
         # Ensure that we got the exact required amount of data
         assert len(chunk_data) == GlobalParams.chunk_size
 
+        # Extra handling of tune-in:
+        if self._allow_tune_in and not self._consumer_locked:
+            
+            # Determine the DE status and position in the data stream
+            if chunk_data[0] == 0 and chunk_id >= self._next_frame:
+
+                # Skip all frames before this frame if we are in the future
+                if chunk_id != self._next_frame:
+                    self._next_frame = chunk_id
+
+                self._consumer_locked = True
+                logging.info('Locked content consumer on chunk id: {}'.format(chunk_id))
+            else:
+                # Discard the frame
+                self._next_frame = chunk_id + 1
+                return
+
         # Track the biggest seen id
         if chunk_id > self._biggest_seen_chunk:
             self._biggest_seen_chunk = chunk_id
-        
+
         # Feed the framer as required
         if chunk_id == self._next_frame:
             self._framer.DataReceived(chunk_data[1:])

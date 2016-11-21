@@ -93,8 +93,9 @@ class Swarm(object):
             else:
                 # Start requesting if not source
                 self._cont_consumer = ContentConsumer(self)
+                self._cont_consumer.allow_tune_in()
                 self.StartChunkRequesting()
-                self._cont_consumer.StartConsuming()
+                self._cont_consumer.start_consuming()
         else:
             self._chunk_storage = FileChunkStorage(self)
             self._chunk_storage.Initialize(
@@ -170,9 +171,14 @@ class Swarm(object):
             raise Exception
 
         # Schedule the execution of selection alg
-        self._chunk_selction_handle = asyncio.get_event_loop().call_later(
-            1 / self._selection_rps, 
-            self.ChunkRequest)
+        if self.live and not self.live_src:
+            self._chunk_selction_handle = asyncio.get_event_loop().call_later(
+                1 / self._selection_rps, 
+                self.greedy_chunk_request)
+        else:
+            self._chunk_selction_handle = asyncio.get_event_loop().call_later(
+                1 / self._selection_rps, 
+                self.ChunkRequest)
 
     def StopChunkRequesting(self):
         """Stop running chunk selection algorithm"""
@@ -182,6 +188,56 @@ class Swarm(object):
 
         self._chunk_selction_handle.cancel()
         self._chunk_selction_handle = None
+
+    def greedy_chunk_request(self):
+        """Implements a greedy chunk request algorithm for live streaming"""
+        REQMAX = 1000           # Max number of outstanding requests from one peer
+        REQTHRESH = 250         # Threshhold to request more pieces
+        
+        any_missing = any(self.set_missing)
+        if self.live_src and any_missing:
+            raise AssertionError("Live Source and missing chunks!")
+
+        if not any_missing and self.live == False:
+            logging.info("All chunks onboard. Not rescheduling request algorithm")
+            return
+
+        # Check if there's anything I need
+        all_empty = True
+
+        # Have local copy to save recomputing each time
+        all_req_local = self._get_all_requested()
+
+        # Request up to REQMAX from each member
+        for member in self._members:
+            set_i_need = member.set_have - self.set_have - all_req_local
+            len_i_need = len(set_i_need)
+            len_member_outstanding = len(member.set_i_requested)
+
+            logging.info('Member: {}. I need {}; Outstanding: {}'
+                         .format(member, len_i_need, len_member_outstanding))
+
+            # At least one member has something I need
+            if len_i_need > 0:
+                all_empty = False
+
+            # Do not bother asking for more until we are below threshold
+            #if len_member_outstanding > REQTHRESH:
+            #    continue
+
+            member.RequestChunks(set_i_need)
+            all_req_local = all_req_local | set_i_need
+
+        # If I can't download anything from anyone - reset requested
+        if all_empty == True:
+            if self._logger.isEnabledFor(logging.DEBUG):
+                logging.debug("Cleared rquested chunks set. Num missing: {}".format(len(self.set_missing)))
+            self.set_requested.clear()
+
+        # Schedule a call to select chunks again
+        self._chunk_selction_handle = asyncio.get_event_loop().call_later(
+            1 / self._selection_rps,
+            self.greedy_chunk_request)
 
     def ChunkRequest(self):
         """Implements Chunks selection/request algorith"""
@@ -209,6 +265,9 @@ class Swarm(object):
             len_i_need = len(set_i_need)
             len_member_outstanding = len(member.set_i_requested)
 
+            logging.info('Member: {}. I need {}; Outstanding: {}'
+                         .format(member, len_i_need, len_member_outstanding))
+
             # At least one member has something I need
             if len_i_need > 0:
                 all_empty = False
@@ -218,10 +277,12 @@ class Swarm(object):
                 continue
 
             if len_i_need >= REQMAX:
+                # I need more than REQMAX, so request up to REQMAX chunks
                 member_request = set(list(set_i_need)[0:REQMAX])
                 member.RequestChunks(member_request)
                 all_req_local = all_req_local | member_request
             else:
+                # I need less than REQMAX, so request all
                 member.RequestChunks(set_i_need)
                 all_req_local = all_req_local | set_i_need
 
@@ -264,7 +325,7 @@ class Swarm(object):
         
         # Feed data to live video consumer if required
         if self.live and not self.live_src:
-            #self._cont_consumer.DataReceived(chunk_id, data)
+            #self._cont_consumer.data_received(chunk_id, data)
             self._cont_consumer.data_received_with_de(chunk_id, data)
 
         # Run post complete actions (not any() is faster than len() == 0)
@@ -399,7 +460,7 @@ class Swarm(object):
         report['member_stats'] = self._member_stats
 
         if self.live and not self.live_src:
-            self._cont_consumer.StopConsuming()
+            self._cont_consumer.stop_consuming()
             report['content_consumer'] = self._cont_consumer.get_stats()
 
         self._log_data(report)

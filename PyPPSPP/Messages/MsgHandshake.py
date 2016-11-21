@@ -152,6 +152,9 @@ class MsgHandshake(object):
             elif next_tag == 7:
                 # TODO implement
                 idx = idx + 1
+                self.live_discard_window = unpack('>I', data[idx:idx+4])[0]
+                logging.debug('Parsed ld: {}'.format(self.live_discard_window))
+                idx = idx + 4
             elif next_tag == 8:
                 idx = idx + 1
                 self.supported_messages_len = data[idx]

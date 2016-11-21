@@ -47,6 +47,7 @@ class SwarmMember(object):
         self.chunk_addressing_method = None
         self.chunk_size = None
         self.hash_type = None
+        self.live_discard_wnd = None
 
         # Did we choke or are we choked
         self.local_choked = False
@@ -138,6 +139,8 @@ class SwarmMember(object):
 
         hs = MsgHandshake.MsgHandshake()
         hs.swarm = self._swarm.swarm_id
+        if self._swarm.discard_wnd is not None:
+            hs.live_discard_window = self._swarm.discard_wnd
         bm = hs.BuildBinaryMessage()
 
         self.local_channel = random.randint(1, 65535)
@@ -264,6 +267,9 @@ class SwarmMember(object):
         
         if self._logger.isEnabledFor(logging.INFO):
             logging.info("FROM > {0} > HAVE: {1}".format(self._peer_num, msg_have))
+
+        if self._swarm.live and self.live_discard_wnd is not None:
+            logging.info("Have from data with Live discard wnd")
         
         for i in range(msg_have.start_chunk, msg_have.end_chunk+1):
             self.set_have.add(i)
@@ -385,8 +391,8 @@ class SwarmMember(object):
             data.extend(bytes([MT.REQUEST]))
             data.extend(msg_req.BuildBinaryMessage())
             i += 1
-            if self._logger.isEnabledFor(logging.DEBUG):
-                logging.debug("TO > {} > ({}/{}) REQUEST: {}".format(self._peer_num, i, j, msg_req))
+            if self._logger.isEnabledFor(logging.INFO):
+                logging.info("TO > {} > ({}/{}) {}".format(self._peer_num, i, j, msg_req))
 
         self.SendAndAccount(data)
         self.set_i_requested = self.set_i_requested | chunks_set
@@ -440,6 +446,9 @@ class SwarmMember(object):
             raise NotImplementedError("Not standard chunk size!")
         else:
             self.chunk_size = msg_handshake.chunk_size
+
+        if msg_handshake.live_discard_window != 0:
+            self.live_discard_wnd = msg_handshake.live_discard_window
 
     def SendRequestedChunks(self):
         """Send the requested chunks to the peer"""
