@@ -20,7 +20,6 @@ class MemoryChunkStorage(AbstractChunkStorage):
         self._cg = None
         self._is_source = False
         self._last_inject_id = 0
-        self._last_discard_id = 0
 
         self._num_chunks_received = 0   # Number of all chunks received
         self._num_unique_received = 0   # Number of unique chunks received
@@ -67,7 +66,11 @@ class MemoryChunkStorage(AbstractChunkStorage):
             self._swarm.set_missing.remove(chunk_id)
             self._swarm.set_have.add(chunk_id)
 
-            # Send have ranges to other members every 20th chunk
+            # If live discarding is used - do the discard
+            if self._swarm.discard_wnd is not None:
+                self.discard_old_chunks()
+
+            # Send have ranges to other members every 100th chunk
             if self._num_unique_received % 100 == 0:
                 self.BuildHaveRanges()
                 self._swarm.SendHaveToMembers()
@@ -188,6 +191,10 @@ class MemoryChunkStorage(AbstractChunkStorage):
         # Inject into system
         self.inject_chunks(chunks)
 
+        # Discard old chunks if needed
+        if self._swarm.discard_wnd is not None:
+            self.discard_old_chunks()
+
         # Reduce the number of have messages
         self._have_outstanding += len(chunks)
         if self._have_outstanding >= 100:
@@ -217,7 +224,7 @@ class MemoryChunkStorage(AbstractChunkStorage):
         # Build have ranges in Live Source
         assert self._swarm.live and self._swarm.live_src
         self._swarm._have_ranges.clear()
-        self._swarm._have_ranges.append((self._last_discard_id + 1, self._last_inject_id))
+        self._swarm._have_ranges.append((self._swarm._last_discarded_id + 1, self._last_inject_id))
     
     def BuildHaveRanges(self):
         # Build live ranges in all other nodes
@@ -240,3 +247,21 @@ class MemoryChunkStorage(AbstractChunkStorage):
                 else:
                     self._swarm._have_ranges.append((x_min, x))
                     in_range = False
+
+    def discard_old_chunks(self):
+        """Discard chunks below the discard threshold"""
+        min_have = min(self._swarm.set_have)
+        max_have = max(self._swarm.set_have)
+
+        # Check if we have anything to discard?
+        if max_have - min_have > self._swarm.discard_wnd:
+
+            # Discard all items below discard window
+            for chunk_id in range(min_have, max_have - self._swarm.discard_wnd):
+                if chunk_id in self._swarm.set_have:
+                    del self._chunks[chunk_id]
+                    self._swarm.set_have.discard(chunk_id)
+                    self._swarm.set_missing.discard(chunk_id)
+
+            # Set last discarded ID
+            self._swarm._last_discarded_id = max_have - self._swarm.discard_wnd - 1

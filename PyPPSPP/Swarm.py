@@ -56,6 +56,7 @@ class Swarm(object):
         self._have_ranges = []          # List of ranges of chunks we have verified
 
         self._data_chunks_rx = 0        # Number of data chunks received overall
+        self._last_discarded_id = 0     # Last discarded chunk id when used with live discard window
 
         self._next_peer_num = 1
         self._max_peers = args.numpeers
