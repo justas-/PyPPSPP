@@ -19,6 +19,10 @@ def main(args):
     logging.info("PPSPP Parameters:\n\tTracker: {};\n\tFilename: {};\n\tFilesize: {}B;\n\tSwarm: {};\n\tLive: {};\n\tLive Source: {};\n\tAlto: {};\n\tNum peers: {};\n\tIdentifier: {};"
                  .format(args.tracker, args.filename, args.filesize, args.swarmid, args.live, args.livesrc, args.alto, args.numpeers, args.identifier))
 
+    if 'workdir' in args:
+        logging.info('Changing work directory to: {}'.format(args.workdir))
+        os.chdir(args.workdir)
+
     # Create hive for storing swarms
     hive = Hive()
 
@@ -136,6 +140,8 @@ if __name__ == "__main__":
     parser.add_argument("--tcp", help="Use TCP between the peers", nargs="?", default=defaults['tcp'])
     parser.add_argument('--discardwnd', help="Live discard window size", nargs='?', default=defaults['discard_window'])
     parser.add_argument('--alto', help="Use ALTO server to rank peers", nargs='?', type=bool, default=defaults['alto'])
+    parser.add_argument('--workdir', help='Change the working direcotry', nargs='?')
+
     # Start the program
     args = parser.parse_args()
 
