@@ -71,6 +71,7 @@ class Swarm(object):
         self._int_chunks = 0
         self._int_data_rx = 0
         self._int_data_tx = 0
+        self._discarded_rx = 0
 
         self._periodic_stats_handle = None
         self._periodic_stats_freq = 3
@@ -263,6 +264,8 @@ class Swarm(object):
         # Request up to REQMAX from each member
         for member in self._members:
             set_i_need = member.set_have - self.set_have - all_req_local
+            set_i_need = set(filter(lambda x: x > self._last_discarded_id, set_i_need))
+            
             len_i_need = len(set_i_need)
             len_member_outstanding = len(member.set_i_requested)
 
@@ -315,6 +318,7 @@ class Swarm(object):
             return
 
         if chunk_id < self._last_discarded_id:
+            self._discarded_rx += 1
             logging.info('Received chunk ({}) in discarded range'.format(chunk_id))
             return
 
@@ -463,6 +467,7 @@ class Swarm(object):
 
         report['run_args'] = vars(self._args)
         report['member_stats'] = self._member_stats
+        report['rx_discarded'] = self._discarded_rx
 
         if self.live and not self.live_src:
             self._cont_consumer.stop_consuming()
