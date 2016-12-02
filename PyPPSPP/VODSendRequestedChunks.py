@@ -28,7 +28,7 @@ class VODSendRequestedChunks(AbstractSendRequestedChunks):
 
             # We might have discarded this chunk:
             if data is None:
-                self._member.set_requests.discard(chunk_to_send)
+                self._member.set_requested.discard(chunk_to_send)
             else:
                 md = MsgData.MsgData(self._member.chunk_size, self._member.chunk_addressing_method)
                 md.start_chunk = chunk_to_send
