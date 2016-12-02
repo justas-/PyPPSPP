@@ -63,7 +63,7 @@ class MemoryChunkStorage(AbstractChunkStorage):
 
             # Save and account
             self._chunks[chunk_id] = data
-            self._swarm.set_missing.remove(chunk_id)
+            self._swarm.set_missing.discard(chunk_id)
             self._swarm.set_have.add(chunk_id)
 
             # If live discarding is used - do the discard

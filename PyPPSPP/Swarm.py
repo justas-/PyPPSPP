@@ -314,6 +314,10 @@ class Swarm(object):
         if not any(self.set_missing):
             return
 
+        if chunk_id < self._last_discarded_id:
+            logging.info('Received chunk ({}) in discarded range'.format(chunk_id))
+            return
+
         # Update stats
         self._data_chunks_rx += 1
 
