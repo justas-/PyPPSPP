@@ -257,11 +257,12 @@ class MemoryChunkStorage(AbstractChunkStorage):
         if max_have - min_have > self._swarm.discard_wnd:
 
             # Discard all items below discard window
-            for chunk_id in range(min_have, max_have - self._swarm.discard_wnd):
+            for chunk_id in range(min_have, max_have - self._swarm.discard_wnd + 1):
                 if chunk_id in self._swarm.set_have:
-                    del self._chunks[chunk_id]
                     self._swarm.set_have.discard(chunk_id)
                     self._swarm.set_missing.discard(chunk_id)
+                if chunk_id in self._chunks:
+                    del self._chunks[chunk_id]
 
             # Set last discarded ID
-            self._swarm._last_discarded_id = max_have - self._swarm.discard_wnd - 1
+            self._swarm._last_discarded_id = max_have - self._swarm.discard_wnd

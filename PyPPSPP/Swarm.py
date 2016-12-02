@@ -82,12 +82,13 @@ class Swarm(object):
             self._chunk_storage = MemoryChunkStorage(self)
             self._chunk_storage.Initialize(self.live_src)
 
-            # Initialize live content generator
-            self._cont_generator = ContentGenerator()
-            #self._cont_generator.add_on_generated_callback(self._chunk_storage.ContentGenerated)
-            self._cont_generator.add_on_generated_callback(self._chunk_storage.pack_data_with_de)
-
             if self.live_src:
+                # Initialize live content generator
+                self._cont_generator = ContentGenerator()
+                
+                #self._cont_generator.add_on_generated_callback(self._chunk_storage.ContentGenerated)
+                self._cont_generator.add_on_generated_callback(self._chunk_storage.pack_data_with_de)
+                
                 # Start generating if source
                 self._cont_generator.start_generating()
             else:
