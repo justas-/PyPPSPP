@@ -275,10 +275,13 @@ class SwarmMember(object):
             if msg_have.end_chunk > self._max_have_value:
                 self._max_have_value = msg_have.end_chunk
 
+                lower_bound = self._max_have_value - self.live_discard_wnd
+
                 # Discard according to live window if required
                 if any(self.set_have):
-                    for chunk_id in range(min(self.set_have), self._max_have_value - self.live_discard_wnd):
-                        self.set_have.discard(chunk_id)
+                    self.set_have = set(filter(lambda x: x > lower_bound, self.set_have))
+                if any(self.set_i_requested):
+                    self.set_i_requested = set(filter(lambda x: x > lower_bound, self.set_i_requested))
         
         for i in range(msg_have.start_chunk, msg_have.end_chunk+1):
             self.set_have.add(i)
