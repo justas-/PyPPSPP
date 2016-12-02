@@ -25,25 +25,28 @@ class VODSendRequestedChunks(AbstractSendRequestedChunks):
             chunk_to_send = min(set_to_send)
        
             data = self._swarm.GetChunkData(chunk_to_send)
-        
-            md = MsgData.MsgData(self._member.chunk_size, self._member.chunk_addressing_method)
-            md.start_chunk = chunk_to_send
-            md.end_chunk = chunk_to_send
-            md.data = data
-            md.timestamp = int((time.time() * 1000000))
 
-            mdata_bin = bytearray()
-            mdata_bin[0:4] = struct.pack('>I', self._member.remote_channel)
-            mdata_bin[4:] = md.BuildBinaryMessage()
+            # We might have discarded this chunk:
+            if data is None:
+                self._member.set_requests.discard(chunk_to_send)
+            else:
+                md = MsgData.MsgData(self._member.chunk_size, self._member.chunk_addressing_method)
+                md.start_chunk = chunk_to_send
+                md.end_chunk = chunk_to_send
+                md.data = data
+                md.timestamp = int((time.time() * 1000000))
 
-            self._member.SendAndAccount(mdata_bin)
-            self._member.set_sent.add(chunk_to_send)
+                mdata_bin = bytearray()
+                mdata_bin[0:4] = struct.pack('>I', self._member.remote_channel)
+                mdata_bin[4:] = md.BuildBinaryMessage()
 
-            if self._counter % 100 == 0:
-                logging.info("Can serve: {0}/{1} chunks. Sent {2} chunk"
-                            .format(len(set_to_send), len(self._swarm.set_have), chunk_to_send))
-            self._counter += 1
-                
+                self._member.SendAndAccount(mdata_bin)
+                self._member.set_sent.add(chunk_to_send)
+
+                if self._counter % 100 == 0:
+                    logging.info("Can serve: {0}/{1} chunks. Sent {2} chunk"
+                                .format(len(set_to_send), len(self._swarm.set_have), chunk_to_send))
+                self._counter += 1
 
             # If we have stuff to send - do not throttle
             self._member._sending_handle = asyncio.get_event_loop().call_soon(
