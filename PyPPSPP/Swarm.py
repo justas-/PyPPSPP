@@ -192,9 +192,9 @@ class Swarm(object):
         self._chunk_selction_handle = None
 
     def greedy_chunk_request(self):
-        """Implements a greedy chunk request algorithm for live streaming"""
-        REQMAX = 1000           # Max number of outstanding requests from one peer
-        REQTHRESH = 250         # Threshhold to request more pieces
+        """Implements a greedy chunk request algorithm for live streaming
+           This algorith neves stops running (i.e. there is no stop threshold).
+        """
         
         any_missing = any(self.set_missing)
         if self.live_src and any_missing:
@@ -204,13 +204,10 @@ class Swarm(object):
             logging.info("All chunks onboard. Not rescheduling request algorithm")
             return
 
-        # Check if there's anything I need
-        all_empty = True
-
         # Have local copy to save recomputing each time
         all_req_local = self._get_all_requested()
 
-        # Request up to REQMAX from each member
+        # Check all members for any missing pieces
         for member in self._members:
             # Build missing chunks
             req_chunks_no_filter = member.set_have - self.set_have - all_req_local
@@ -218,31 +215,15 @@ class Swarm(object):
             # Ensure we are above the discard threshold
             required_chunks = [x for x in req_chunks_no_filter if x > self._last_discarded_id]
 
-            # Get some stats
-            len_i_need = len(required_chunks)
-            len_member_outstanding = len(member.set_i_requested)
+            # Print stats if interesting
+            if any(required_chunks) or any(member.set_i_requested):
+                logging.info('Member: {}. I need {}; Outstanding: {}'
+                             .format(member, len(required_chunks), len(member.set_i_requested)))
 
-            logging.info('Member: {}. I need {}; Outstanding: {}'
-                         .format(member, len_i_need, len_member_outstanding))
-
-            # At least one member has something I need
-            if any(required_chunks):
-                all_empty = False
-
-            # Do not bother asking for more until we are below threshold
-            if len_member_outstanding > REQTHRESH:
-                continue
-
+            # Request the data and keep track of requests
             set_need = set(required_chunks)
-
             member.RequestChunks(set_need)
             all_req_local = all_req_local | set_need
-
-        # If I can't download anything from anyone - reset requested
-        if all_empty == True:
-            if self._logger.isEnabledFor(logging.DEBUG):
-                logging.debug("Cleared rquested chunks set. Num missing: {}".format(len(self.set_missing)))
-            self.set_requested.clear()
 
         # Schedule a call to select chunks again
         self._chunk_selction_handle = asyncio.get_event_loop().call_later(
