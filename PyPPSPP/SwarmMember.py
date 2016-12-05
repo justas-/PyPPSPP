@@ -291,7 +291,7 @@ class SwarmMember(object):
                 if i in self._swarm.set_have:
                     # Do nothing if I have the advertised chunk
                     pass
-                else:
+                elif i > self._swarm._last_discarded_id:
                     # There is a chunk somebody have and I don't -> add to missing set
                     self._swarm.set_missing.add(i)
 
