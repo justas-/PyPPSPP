@@ -547,8 +547,13 @@ class SwarmMember(object):
             return None
 
     def __str__(self):
-        return str("Peer {0}:{1} LC: {2}; RC: {3}"
-                   .format(self.ip_address, self.udp_port, self.local_channel, self.remote_channel))
+        return str("Peer {}:{} ({}) LC: {}; RC: {}"
+                   .format(
+                       self.ip_address, 
+                       self.udp_port, 
+                       self._peer_num,
+                       self.local_channel, 
+                       self.remote_channel))
 
     def __repr__(self):
         return self.__str__()

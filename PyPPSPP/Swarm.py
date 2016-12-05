@@ -212,7 +212,13 @@ class Swarm(object):
 
         # Request up to REQMAX from each member
         for member in self._members:
+            # Build missing chunks
             set_i_need = member.set_have - self.set_have - all_req_local
+            
+            # Ensure we are above the discard threshold
+            set_i_need = [x for x in set_i_need if x > self._last_discarded_id]
+
+            # Get some stats
             len_i_need = len(set_i_need)
             len_member_outstanding = len(member.set_i_requested)
 
@@ -220,15 +226,15 @@ class Swarm(object):
                          .format(member, len_i_need, len_member_outstanding))
 
             # At least one member has something I need
-            if len_i_need > 0:
+            if any(set_i_need):
                 all_empty = False
 
             # Do not bother asking for more until we are below threshold
-            #if len_member_outstanding > REQTHRESH:
-            #    continue
+            if len_member_outstanding > REQTHRESH:
+                continue
 
             member.RequestChunks(set_i_need)
-            all_req_local = all_req_local | set_i_need
+            all_req_local = all_req_local | set(set_i_need)
 
         # If I can't download anything from anyone - reset requested
         if all_empty == True:
