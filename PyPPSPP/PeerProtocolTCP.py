@@ -70,7 +70,13 @@ class PeerProtocolTCP(asyncio.Protocol):
 
     def data_deserialized(self, data):
         """Called when Framer has enough data"""
-        my_channel = struct.unpack('>I', data[0:4])[0]
+
+        try:
+            my_channel = struct.unpack('>I', data[0:4])[0]
+        except Exception as exp:
+            logging.error('Exception acessing deser data (my channel). Exception: {}; Data: {}'
+                          .format(exp, data))
+            return
 
         if my_channel != 0 and self._is_orphan:
             logging.warn("Orphan connection not sending a handshake!")
@@ -86,8 +92,14 @@ class PeerProtocolTCP(asyncio.Protocol):
                 logging.warn("Got data for channel {}, but channel is not there!".format(my_channel))
         else:
             # Start creating new member in a swarm
-            swarm_id_len = struct.unpack('>H', data[14:16])[0]
-            swarm_id = data[16:16+swarm_id_len]
+            
+            try:
+                swarm_id_len = struct.unpack('>H', data[14:16])[0]
+                swarm_id = data[16:16+swarm_id_len]
+            except Exception as exp:
+                logging.error('Exception acessing deser data (swarm id len). Exception: {}; Data: {}'
+                          .format(exp, data))
+                return
 
             swarm_id_str = binascii.hexlify(swarm_id).decode('ascii')
 
