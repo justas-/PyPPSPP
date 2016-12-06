@@ -24,6 +24,7 @@ class ContentConsumer(object):
         self._stop_thread = False
         self._consumer_locked = False   # Is the consumer locked to the right position in the datastream
         self._allow_tune_in = False     # Allow the client to tune-in (see method for explanation)
+        self._data_lock = threading.Lock()
 
         self._frames_consumed = 0       # Number of A/V frames shown
         self._frames_missed = 0         # Number of frames that was not there when needed
@@ -31,7 +32,8 @@ class ContentConsumer(object):
         self._first_frame_time = 0      # When the first frame was consumed
         self._stop_time = 0             # When consumer stopped
         self._consume_run = 0           # Number of time consume event ran
-        self._buffer_start = 0        # Time when buffering stops and consuming start
+        self._buffer_start = 0          # Time when buffering stops and consuming start
+        self._num_skipped = 0           # Number of data chunks skipped
 
         
     def thread_entry(self):
@@ -133,6 +135,9 @@ class ContentConsumer(object):
         # Ensure that we got the exact required amount of data
         assert len(chunk_data) == GlobalParams.chunk_size
 
+        # Get the lock
+        self._data_lock.acquire()
+
         # Extra handling of tune-in:
         if self._allow_tune_in and not self._consumer_locked:
             
@@ -161,14 +166,10 @@ class ContentConsumer(object):
 
         # If we have a gap - try to fill it
         if self._biggest_seen_chunk > self._next_frame:
-            while True:
-                chunk = self._swarm._chunk_storage.GetChunkData(self._next_frame, ignore_missing = True)
-                if chunk == None:
-                    # We do not have next chunk yet
-                    break
-                else:
-                    self._framer.DataReceived(chunk[1:])
-                    self._next_frame += 1
+            self.feed_q_until_max()
+
+        # Release the lock
+        self._data_lock.release()
         
     def __data_framed(self, data):
         # Called by framer when full A/V frame is ready
@@ -201,6 +202,71 @@ class ContentConsumer(object):
                 if self._frames_missed % 10 == 0:
                     logging.warn('Framer stuck on: {}'.format(self._next_frame))
 
+    def feed_q_until_max(self):
+        """Try feeding the frames Q until the last known chunk"""
+        while True:
+            chunk = self._swarm._chunk_storage.GetChunkData(self._next_frame, ignore_missing = True)
+            if chunk == None:
+                # We do not have next chunk yet
+                break
+            else:
+                self._framer.DataReceived(chunk[1:])
+                self._next_frame += 1
+
+    def _skip_frames(self):
+        """Skip number of frames forward to prevent content consumer being stuck."""
+
+        # Get the lock so we are not fed anything
+        self._data_lock.acquire()
+
+        skipped = False
+
+        # Skip initial chunks
+        nf = self._next_frame + 250
+
+        # Keep running until the end
+        while nf <= self._biggest_seen_chunk:
+
+            # Get the chunk
+            chunk = self._swarm._chunk_storage.GetChunkData(nf, ignore_missing = True)
+
+            # If Chunk is missing continue with next
+            if chunk == None:
+                nf += 1
+                continue
+            else:
+                # we have chunk, sheck DE
+                if chunk_data[0] == 0:
+                    # non DE frame found
+                    skipped = True
+                    break
+                else:
+                    # This chunk is Discar eligible - continue
+                    nf += 1
+                    continue
+
+        # If skip was sucessful:
+        if skipped:
+            # Print results:
+            logging.info('Chunk skip successful. Num skipped: {}'.format(nf))
+
+            # Log stats
+            self._num_skipped += nf
+
+            # Clear the q and framer
+            self._q = queue.Queue()
+            self._framer = Framer(self.__data_framed, av_framer = True)
+
+            # Fast forward to new next chunk
+            self._next_frame = nf
+            # Feed the queue as much as possible
+            self.feed_q_until_max()
+        else:
+            logging.info('Chunk skip failed')
+
+        # Release the lock
+        self._data_lock.release()
+
     def get_stats(self):
         """Create statistics object"""
 
@@ -212,5 +278,6 @@ class ContentConsumer(object):
         stat['content_stop_time'] = self._stop_time
         stat['consume_runs'] = self._consume_run
         stat['buffer_start'] = self._buffer_start
+        stat['chunks_skipped'] = self._num_skipped
 
         return stat
