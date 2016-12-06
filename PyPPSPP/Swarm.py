@@ -116,6 +116,11 @@ class Swarm(object):
         self._socket.sendto(data, (ip_address, port))
         self._all_data_tx += len(data)
 
+    def any_free_peer_slots(self):
+        """Check if the swarm can accept any peers"""
+        if self._max_peers is None or len(self._members) < self._max_peers:
+            return True
+
     def AddMember(self, ip_address, port = 6778, proto = None):
         """Add a member to a swarm and try to initialize connection"""
         

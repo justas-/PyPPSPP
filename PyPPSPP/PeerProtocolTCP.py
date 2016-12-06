@@ -26,16 +26,25 @@ class PeerProtocolTCP(asyncio.Protocol):
 
         logging.info("New TCP connection from {}:{}".format(self._ip, self._port))
 
+        # Do we have any swarm waiting for this connection?
         list_waiting = self._hive.check_if_waiting(self._ip, self._port)
-        if list_waiting is None:
-            self._hive.add_orphan_connection(self)
-        else:
+        if list_waiting is not None:
             for swarm_id in list_waiting:
+                logging.info('Found swarm {} waiting for the connection'.format(swarm_id))
                 swarm = self._hive.get_swarm(swarm_id)
                 m = swarm.AddMember(self._ip, self._port, self)
                 if m is not None:
                     m.SendHandshake()
-
+        else:
+            # Do we have any swarms that could accept this connection?
+            if any(sw.any_free_peer_slots() for sw in self._hive._swarms.values()):
+                # Add to orpahn list
+                logging.info('Added connection from {}:{} to the orphan connections list'.format(self._ip, self._port))
+                self._hive.add_orphan_connection(self)
+            else:
+                # No swarm can accept this connection - drop it
+                self.force_close_connection()
+            
     def send_data(self, data):
         """Wrap data in framer's header and send it"""
         packet = bytearray()
