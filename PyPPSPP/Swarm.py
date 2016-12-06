@@ -200,7 +200,7 @@ class Swarm(object):
         if self.live_src and any_missing:
             raise AssertionError("Live Source and missing chunks!")
 
-        if not any_missing and self.live == False:
+        if not any_missing and not self.live:
             logging.info("All chunks onboard. Not rescheduling request algorithm")
             return
 

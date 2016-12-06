@@ -37,8 +37,19 @@ def main(args):
 
     # Create connection to the tracker node
     # All this code should be hidden in the Tracekr and Swarm manager!
-    tracker_listen = loop.create_connection(lambda: TrackerClientProtocol(tracker), args.tracker, 6777)
-    tracker_transport, traceker_server = loop.run_until_complete(tracker_listen)
+    num_retries = 3
+    while num_retries > 0:
+        try:
+            tracker_listen = loop.create_connection(lambda: TrackerClientProtocol(tracker), args.tracker, 6777)
+            tracker_transport, traceker_server = loop.run_until_complete(tracker_listen)
+            break
+        except Exception as exp:
+            logging.warn('Exception connecting to tracker: {}'.format(exp))
+            num_retries -= 1
+
+    if num_retries == 0:
+        logging.error('Failed to connect to the tracker!')
+        return
 
     # TODO - check if connected to the Tracekr!
     tracker.SetTrackerProtocol(traceker_server)
