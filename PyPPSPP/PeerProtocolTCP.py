@@ -74,8 +74,8 @@ class PeerProtocolTCP(asyncio.Protocol):
         try:
             my_channel = struct.unpack('>I', data[0:4])[0]
         except Exception as exp:
-            logging.error('Exception acessing deser data (my channel). Exception: {}; Data: {}'
-                          .format(exp, data))
+            logging.error('Exception acessing deser data (my channel). Exception: {}; Data: {}; Peer: {}:{}'
+                          .format(exp, data, self._ip, self._port))
             return
 
         if my_channel != 0 and self._is_orphan:
@@ -97,8 +97,9 @@ class PeerProtocolTCP(asyncio.Protocol):
                 swarm_id_len = struct.unpack('>H', data[14:16])[0]
                 swarm_id = data[16:16+swarm_id_len]
             except Exception as exp:
-                logging.error('Exception acessing deser data (swarm id len). Exception: {}; Data: {}'
-                          .format(exp, data))
+                logging.error('Exception acessing deser data (swarm id len). Exception: {}; Data: {}; Peer: {}:{}'
+                          .format(exp, data, self._ip, self._port))
+                self.force_close_connection()
                 return
 
             swarm_id_str = binascii.hexlify(swarm_id).decode('ascii')
@@ -142,3 +143,9 @@ class PeerProtocolTCP(asyncio.Protocol):
 
         if not any(self._members):
             self._transport.close()
+
+    def force_close_connection(self):
+        """Close connection without any extra actions"""
+        logging.info('Force-closing connection to: {}:{}'.format(self._ip, self._port))
+        self._hive.remove_orphan_connection(self)
+        self._transport.close()

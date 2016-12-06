@@ -45,6 +45,7 @@ def main(args):
             break
         except Exception as exp:
             logging.warn('Exception connecting to tracker: {}'.format(exp))
+            time.sleep(1)
             num_retries -= 1
 
     if num_retries == 0:
