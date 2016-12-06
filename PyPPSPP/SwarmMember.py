@@ -267,8 +267,8 @@ class SwarmMember(object):
     def HandleHave(self, msg_have):
         """Update the local have map"""
         
-        if self._logger.isEnabledFor(logging.INFO):
-            logging.info("FROM > {0} > HAVE: {1}".format(self._peer_num, msg_have))
+        if self._logger.isEnabledFor(logging.DEBUG):
+            logging.DEBUG("FROM > {0} > HAVE: {1}".format(self._peer_num, msg_have))
 
         if self._swarm.live and self.live_discard_wnd is not None:
             # Check for new max

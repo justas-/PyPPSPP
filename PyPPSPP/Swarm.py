@@ -219,7 +219,24 @@ class Swarm(object):
             if any(required_chunks) or any(member.set_i_requested):
                 logging.info('Member: {}. I need {}; Outstanding: {}'
                              .format(member, len(required_chunks), len(member.set_i_requested)))
+            
+            # Fast continue if nothing is required
+            if not any(required_chunks):
+                continue
 
+            # Calc stats
+            num_need = len(required_chunks)
+            num_waiting = len(member.set_i_requested)
+
+            # Skip requesting if there is a lot outstanding already
+            if num_waiting > 350:
+                continue
+
+            # Request up to 300 chunks from smallest to largest
+            if num_need > 300:
+                required_chunks.sort()
+                required_chunk = required_chunks[0:300]
+            
             # Request the data and keep track of requests
             set_need = set(required_chunks)
             member.RequestChunks(set_need)

@@ -109,9 +109,9 @@ if __name__ == "__main__":
     
     if LOG_TO_FILE:
         idstr = 'runlog_'+result_id+'.log'
-        logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s', filename=output_dir+idstr)
+        logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(asctime)s %(message)s', filename=output_dir+idstr)
     else:
-        logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
+        logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(asctime)s %(message)s')
 
     logging.info ("PyPPSPP starting")
 

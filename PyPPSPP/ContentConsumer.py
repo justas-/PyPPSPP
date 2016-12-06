@@ -31,12 +31,18 @@ class ContentConsumer(object):
         self._first_frame_time = 0      # When the first frame was consumed
         self._stop_time = 0             # When consumer stopped
         self._consume_run = 0           # Number of time consume event ran
+        self._buffer_start = 0        # Time when buffering stops and consuming start
 
         
     def thread_entry(self):
         """Entry point for consumption happening in the thread"""
 
         try:
+            # Keep beffering for some time
+            self._buffer_start = time.time()
+            while self._q.qsize() < 50:
+                time.sleep(0.25) 
+
             # Set the start time
             self._start_time = time.time()
             
@@ -192,6 +198,8 @@ class ContentConsumer(object):
             # Do not count missed frames until the first frame is shown
             if self._first_frame_time != 0:
                 self._frames_missed += 1
+                if self._frames_missed % 10 == 0:
+                    logging.warn('Framer stuck on: {}'.format(self._next_frame))
 
     def get_stats(self):
         """Create statistics object"""
@@ -203,5 +211,6 @@ class ContentConsumer(object):
         stat['content_start_time'] = self._start_time
         stat['content_stop_time'] = self._stop_time
         stat['consume_runs'] = self._consume_run
+        stat['buffer_start'] = self._buffer_start
 
         return stat

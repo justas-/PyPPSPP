@@ -84,8 +84,11 @@ class MemoryChunkStorage(AbstractChunkStorage):
                 else:
                     last_known = max(self._swarm.set_missing)
 
+                num_have_ranges = len(self._swarm._have_ranges)
                 logging.info("Saved chunk {0}; Num missing: {1}; Last known: {2}; Num have ranges: {3}"
-                             .format(chunk_id, len_missing, last_known, len(self._swarm._have_ranges)))
+                             .format(chunk_id, len_missing, last_known, num_have_ranges))
+                if num_have_ranges < 10:
+                    logging.info('Have ranges: {}'.format(self._swarm._have_ranges))
 
     def ContentGenerated(self, data):
         # Pickle audio and video data

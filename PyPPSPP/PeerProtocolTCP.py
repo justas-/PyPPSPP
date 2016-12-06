@@ -79,7 +79,7 @@ class PeerProtocolTCP(asyncio.Protocol):
             return
 
         if my_channel != 0 and self._is_orphan:
-            logging.warn("Orphan connection not sending a handshake!")
+            logging.error("Orphan connection not sending a handshake!")
             return
 
         if my_channel != 0:
