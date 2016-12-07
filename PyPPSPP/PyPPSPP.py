@@ -138,6 +138,7 @@ if __name__ == "__main__":
     defaults['tcp'] = True
     defaults['discard_window'] = 1000
     defaults['alto'] = False
+    defaults['skip'] = False
 
     # Parse command line parameters
     parser = argparse.ArgumentParser(description="Python implementation of PPSPP protocol")
@@ -153,6 +154,7 @@ if __name__ == "__main__":
     parser.add_argument('--discardwnd', help="Live discard window size", nargs='?', default=defaults['discard_window'])
     parser.add_argument('--alto', help="Use ALTO server to rank peers", nargs='?', type=bool, default=defaults['alto'])
     parser.add_argument('--workdir', help='Change the working direcotry', nargs='?')
+    parser.add_argument('--skip', help='Allow skipping chunks when framer is stuck', nargs='?', type=bool, default=defaults['skip'])
 
     # Start the program
     args = parser.parse_args()

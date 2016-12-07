@@ -201,6 +201,8 @@ class ContentConsumer(object):
                 self._frames_missed += 1
                 if self._frames_missed % 10 == 0:
                     logging.warn('Framer stuck on: {}'.format(self._next_frame))
+                    if self._swarm._args.skip is True:
+                        self._skip_frames()
 
     def feed_q_until_max(self):
         """Try feeding the frames Q until the last known chunk"""
