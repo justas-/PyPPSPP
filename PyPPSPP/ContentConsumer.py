@@ -42,7 +42,7 @@ class ContentConsumer(object):
         try:
             # Keep beffering for some time
             self._buffer_start = time.time()
-            while self._q.qsize() < 50:
+            while self._q.qsize() < 100:
                 time.sleep(0.25) 
 
             # Set the start time
@@ -223,7 +223,9 @@ class ContentConsumer(object):
 
         skipped = False
 
+
         # Skip initial chunks
+        nf_old = self._next_frame
         nf = self._next_frame + 250
 
         # Keep running until the end
@@ -233,27 +235,28 @@ class ContentConsumer(object):
             chunk = self._swarm._chunk_storage.GetChunkData(nf, ignore_missing = True)
 
             # If Chunk is missing continue with next
-            if chunk == None:
+            if chunk is None:
                 nf += 1
                 continue
             else:
-                # we have chunk, sheck DE
-                if chunk_data[0] == 0:
+                # we have chunk, check DE
+                if chunk[0] == 0:
                     # non DE frame found
                     skipped = True
                     break
                 else:
-                    # This chunk is Discar eligible - continue
+                    # This chunk is Discard eligible - continue
                     nf += 1
                     continue
 
         # If skip was sucessful:
         if skipped:
             # Print results:
-            logging.info('Chunk skip successful. Num skipped: {}'.format(nf))
+            logging.info('Chunk skip successful. Cur nf: {}; New nf: {}, Biggest seen: {};'
+                         .format(self._next_frame, nf, self._biggest_seen_chunk))
 
             # Log stats
-            self._num_skipped += nf
+            self._num_skipped += (nf - nf_old)
 
             # Clear the q and framer
             self._q = queue.Queue()
@@ -264,7 +267,8 @@ class ContentConsumer(object):
             # Feed the queue as much as possible
             self.feed_q_until_max()
         else:
-            logging.info('Chunk skip failed')
+            logging.info('Chunk skip failed! Nf: {}, Biggest seen: {}'
+                         .format(self._next_frame, self._biggest_seen_chunk))
 
         # Release the lock
         self._data_lock.release()
