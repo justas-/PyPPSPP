@@ -419,14 +419,20 @@ class Swarm(object):
         self._int_data_tx = self._all_data_tx
         self._int_time = time.time()
 
+        # Number of members in the swarm
+        known_members = len(self._members)
+        valid_members = sum(m.is_init for m in self._members)
+
         # Print results
-        logging.info("# Have/Missing {}/{}; Down ch/s: {}; Speed up/down: {}/{} Bps"
+        logging.info("# Have/Missing {}/{}; Down ch/s: {}; Speed up/down: {}/{} Bps; Members Known/Valid: {}/{}"
                      .format(
                          num_have, 
                          num_missing, 
                          int(chunks_in_int/t_int),
                          int(data_tx_in_int/t_int),
-                         int(data_rx_in_int/t_int)))
+                         int(data_rx_in_int/t_int),
+                         known_members,
+                         valid_members))
 
         self._periodic_stats_handle = asyncio.get_event_loop().call_later(
             self._periodic_stats_freq,

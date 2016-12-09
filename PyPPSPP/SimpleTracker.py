@@ -71,7 +71,8 @@ class SimpleTracker(object):
 
     def handle_other_peers(self, swarm, data):
         """Handle other_peers message when not using ALTO"""
-        # Add members in random order
+        
+        # Shuffle the received members list
         mem_copy = data['details']
         random.shuffle(mem_copy)
 
