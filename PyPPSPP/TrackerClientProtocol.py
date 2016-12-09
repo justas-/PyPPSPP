@@ -17,7 +17,7 @@ class TrackerClientProtocol(asyncio.Protocol):
 
     def connection_lost(self, exc):
         """Called when connection to Tracekr is gone"""
-        self._tracker.ConnectionLost()
+        self._tracker.connection_lost()
 
     def data_received(self, data):
         """Pass all received bytes to framer"""
@@ -35,4 +35,4 @@ class TrackerClientProtocol(asyncio.Protocol):
 
     def _OnData(self, data):
         """Called with single serialized message from the framer"""
-        self._tracker.DataReceived(json.loads(data.decode()))
+        self._tracker.data_received(json.loads(data.decode()))

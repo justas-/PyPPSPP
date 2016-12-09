@@ -24,10 +24,10 @@ class SimpleTracker(object):
         """Link tracker to the hive"""
         self._hive = hive
 
-    def SetTrackerProtocol(self, proto):
+    def set_tracker_protocol(self, proto):
         self._tracekr_protocol = proto
 
-    def ConnectionLost(self):
+    def connection_lost(self):
         """Connection to the tracker was lost..."""
         # We can continue operating even if connection to the tracker is lost
         return None
@@ -38,7 +38,7 @@ class SimpleTracker(object):
         s.connect(('1.1.1.1', 0))
         return s.getsockname()[0]
 
-    def DataReceived(self, data):
+    def data_received(self, data):
         """Called with deserialized message from the tracker server"""
 
         swarm_id = None
@@ -60,55 +60,68 @@ class SimpleTracker(object):
             if not any(data['details']):
                 return
             if self._use_alto:
-                # Prepare data
-                net_costs = {}
-                my_ip = self._GetMyIP()
-
-                # Sort into price buckets
-                for member in data['details']:
-                    mem_cost = int(self._alto.get_cost_by_ip(my_ip, member[0]))
-                    if mem_cost not in net_costs:
-                        net_costs[mem_cost] = []
-                    net_costs[mem_cost].append(member)
-
-                # Log our costs
-                logging.info("ALTO Sorted: {}".format(net_costs))
-
-                # Start adding
-                costs = list(net_costs.keys())
-                costs.sort()
-
-                # Add members
-                for cost in costs:
-                    for member in net_costs[cost]:
-                        m = self._swarm.AddMember(member[0], member[1])
-                        if m != None:
-                            m.SendHandshake()
+                self.handle_other_peers_alto(swarm, data)
+                return
             else:
-                # Add members in random order
-                mem_copy = data['details']
-                random.shuffle(mem_copy)
+                self.handle_other_peers(swarm, data)
+                return
+        else:
+            logging.warn('Unknown message received from the tracker: {}'
+                         .format(data['type']))
 
-            for member in mem_copy:
-                if swarm._args.tcp:
-                    # Check if we have connection already
-                    proto = self._hive.get_proto_by_address(member[0], member[1])
-                    if proto is not None:
-                        # Connection to the given peer is already there - start handshake
-                        member = swarm.AddMember(member[0], member[1], proto)
-                        if member is not None:
-                            member.SendHandshake()
-                    else:
-                        # Initiate a new coonection to the given peer
-                        self._hive.make_connection(member[0], member[1], swarm.swarm_id)
+    def handle_other_peers(self, swarm, data):
+        """Handle other_peers message when not using ALTO"""
+        # Add members in random order
+        mem_copy = data['details']
+        random.shuffle(mem_copy)
+
+        for member in mem_copy:
+            if swarm._args.tcp:
+                # Check if we have connection already
+                proto = self._hive.get_proto_by_address(member[0], member[1])
+                if proto is not None:
+                    # Connection to the given peer is already there - start handshake
+                    member = swarm.AddMember(member[0], member[1], proto)
+                    if member is not None:
+                        member.SendHandshake()
                 else:
-                    m = swarm.AddMember(member[0], member[1])
+                    # Initiate a new coonection to the given peer
+                    self._hive.make_connection(member[0], member[1], swarm.swarm_id)
+            else:
+                m = swarm.AddMember(member[0], member[1])
+                if m != None:
+                    m.SendHandshake()
+                for member in mem_copy:
+                    m = self._swarm.AddMember(member[0], member[1])
                     if m != None:
                         m.SendHandshake()
-                    for member in mem_copy:
-                        m = self._swarm.AddMember(member[0], member[1])
-                        if m != None:
-                            m.SendHandshake()
+
+    def handle_other_peers_alto(self, swarm, data):
+        """Handle other_peers message when using ALTO"""
+        # Prepare data
+        net_costs = {}
+        my_ip = self._GetMyIP()
+
+        # Sort into price buckets
+        for member in data['details']:
+            mem_cost = int(self._alto.get_cost_by_ip(my_ip, member[0]))
+            if mem_cost not in net_costs:
+                net_costs[mem_cost] = []
+            net_costs[mem_cost].append(member)
+
+        # Log our costs
+        logging.info("ALTO Sorted: {}".format(net_costs))
+
+        # Start adding
+        costs = list(net_costs.keys())
+        costs.sort()
+
+        # Add members
+        for cost in costs:
+            for member in net_costs[cost]:
+                m = self._swarm.AddMember(member[0], member[1])
+                if m != None:
+                    m.SendHandshake()
 
     def register_in_tracker(self, swarm_id: str, port: int):
         """Register with the tracker"""

@@ -53,7 +53,7 @@ def main(args):
         return
 
     # TODO - check if connected to the Tracekr!
-    tracker.SetTrackerProtocol(traceker_server)
+    tracker.set_tracker_protocol(traceker_server)
 
     ip_port = 6778
 
