@@ -364,7 +364,7 @@ class Swarm(object):
             msg.extend(have.BuildBinaryMessage())
 
         # Send our information to all members
-        for member in [m for m in self._members if m._has_complete_data is False]:
+        for member in self._members:
             hs = bytearray()
             hs.extend(struct.pack('>I', member.remote_channel))
             hs.extend(msg)
