@@ -65,9 +65,31 @@ class SimpleTracker(object):
             else:
                 self.handle_other_peers(swarm, data)
                 return
+        elif data['type'] == 'new_node':
+            endpoint = data['endpoint']
+            logging.info('Received new_node from tracker. Node: {}:{}'
+                         .format(endpoint[0], endpoint[1]))
+
+            if swarm.any_free_peer_slots():
+                self.add_tcp_member(swarm, endpoint[0], endpoint[1])
+            else:
+                logging.info('Swarm {} has no free slots. Ignoring'.format(swarm.swarm_id))
         else:
             logging.warn('Unknown message received from the tracker: {}'
                          .format(data['type']))
+
+    def add_tcp_member(self, swarm, ip_address, port):
+        """Handle making connection to the peer and adding it to swarm"""
+        # Check if we have connection already
+        proto = self._hive.get_proto_by_address(ip_address, port)
+        if proto is not None:
+            # Connection to the given peer is already there - start handshake
+            member = swarm.AddMember(ip_address, port, proto)
+            if member is not None:
+                member.SendHandshake()
+        else:
+            # Initiate a new coonection to the given peer
+            self._hive.make_connection(ip_address, port, swarm.swarm_id)
 
     def handle_other_peers(self, swarm, data):
         """Handle other_peers message when not using ALTO"""
@@ -78,16 +100,7 @@ class SimpleTracker(object):
 
         for member in mem_copy:
             if swarm._args.tcp:
-                # Check if we have connection already
-                proto = self._hive.get_proto_by_address(member[0], member[1])
-                if proto is not None:
-                    # Connection to the given peer is already there - start handshake
-                    member = swarm.AddMember(member[0], member[1], proto)
-                    if member is not None:
-                        member.SendHandshake()
-                else:
-                    # Initiate a new coonection to the given peer
-                    self._hive.make_connection(member[0], member[1], swarm.swarm_id)
+                self.add_tcp_member(swarm, member[0], member[1])
             else:
                 m = swarm.AddMember(member[0], member[1])
                 if m != None:

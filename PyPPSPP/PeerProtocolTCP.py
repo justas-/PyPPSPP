@@ -43,6 +43,7 @@ class PeerProtocolTCP(asyncio.Protocol):
                 self._hive.add_orphan_connection(self)
             else:
                 # No swarm can accept this connection - drop it
+                logging.info('No free slots in any of the swarms')
                 self.force_close_connection()
             
     def send_data(self, data):
