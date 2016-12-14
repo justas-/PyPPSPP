@@ -59,6 +59,10 @@ class SimpleTracker(object):
             # We got information about other peers in the system
             if not any(data['details']):
                 return
+
+            # Always save information about other peers
+            swarm.add_other_peers(data['details'])
+
             if self._use_alto:
                 self.handle_other_peers_alto(swarm, data)
                 return
@@ -70,10 +74,16 @@ class SimpleTracker(object):
             logging.info('Received new_node from tracker. Node: {}:{}'
                          .format(endpoint[0], endpoint[1]))
 
+            # Add to known peers list
+            swarm.add_other_peers([endpoint])
+
             if swarm.any_free_peer_slots():
                 self.add_tcp_member(swarm, endpoint[0], endpoint[1])
             else:
                 logging.info('Swarm {} has no free slots. Ignoring'.format(swarm.swarm_id))
+        elif data['type'] == 'remove_node':
+            endpoint = data['endpoint']
+            swarm.remove_other_nodes([endpoint])
         else:
             logging.warn('Unknown message received from the tracker: {}'
                          .format(data['type']))

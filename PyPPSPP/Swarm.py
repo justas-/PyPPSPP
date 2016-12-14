@@ -38,6 +38,7 @@ class Swarm(object):
 
         self._socket = socket
         self._members = []
+        self._known_peers = set()       # Set of (IP, Port) tuples of other known peers
 
         # Logger for fast access
         self._logger = logging.getLogger()
@@ -452,6 +453,19 @@ class Swarm(object):
         with open(result_file,"w") as fp:
             fp.write(json.dumps(data))
         logging.info("Wrote logs to file: {}".format(result_file))
+
+    def add_other_peers(self, other_peers):
+        """Add other known peers in [(IP, Port)] form"""
+
+        for peer in other_peers:
+            if peer not in self._known_peers:
+                self._known_peers.add(peer)
+
+    def remove_other_peers(self, other_peers):
+        """Remove other known peers"""
+
+        for peer in other_peers:
+            self._known_peers.discard(peer)
 
     def close_swarm(self):
         """Close the swarm and send disconnect to all members"""
