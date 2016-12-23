@@ -1,10 +1,5 @@
 # Open Source implementation of PPSPP protocol [RFC7574]
 
+This implementation was tested in Linux and in MS Windows.
 
-What is hacked and not according to specs:
-
- * Handshake message Live discard Window
- * Supported messages in Handshake is a hack
-
-NOTES:
- * Sending one 1024B chunk at a time.
+PPSPP with TCP is not defined in the RFC, so it is subject to change at any moment. This implementation of PPSPP interworks with the reference C++ implementation available at https://github.com/libswift/libswift
