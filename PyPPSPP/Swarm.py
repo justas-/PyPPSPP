@@ -35,6 +35,8 @@ class Swarm(object):
         self.live_src = args.livesrc
         if args.discardwnd is not None:
             self.discard_wnd = int(args.discardwnd)
+        else:
+            self.discard_wnd = None
 
         self._socket = socket
         self._members = []

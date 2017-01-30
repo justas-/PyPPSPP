@@ -61,7 +61,7 @@ class SimpleTracker(object):
                 return
 
             # Always save information about other peers
-            swarm.add_other_peers(data['details'])
+            swarm.add_other_peers([tuple(x) for x in data['details']])
 
             if self._use_alto:
                 self.handle_other_peers_alto(swarm, data)
@@ -75,7 +75,7 @@ class SimpleTracker(object):
                          .format(endpoint[0], endpoint[1]))
 
             # Add to known peers list
-            swarm.add_other_peers([endpoint])
+            swarm.add_other_peers([tuple(endpoint)])
 
             if swarm.any_free_peer_slots():
                 self.add_tcp_member(swarm, endpoint[0], endpoint[1])
