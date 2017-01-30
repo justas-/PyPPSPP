@@ -161,5 +161,7 @@ if __name__ == "__main__":
 
     args.result_id = result_id
     args.output_dir = output_dir
+    if args.discardwnd == 'None':
+        args.discardwnd = None
     
     main(args)
