@@ -133,7 +133,7 @@ if __name__ == "__main__":
     defaults['filename'] = "C:\\PyPPSPP\\test20MB.bin"
     defaults['swarmid'] = "92e0212854257b8b4742e0dd64075471ef17caef"
     defaults['filesize'] = 20971520
-    defaults['live'] = True
+    defaults['live'] = False
     defaults['live_src'] = False
     defaults['tcp'] = True
     defaults['discard_window'] = 1000
@@ -142,19 +142,21 @@ if __name__ == "__main__":
 
     # Parse command line parameters
     parser = argparse.ArgumentParser(description="Python implementation of PPSPP protocol")
-    parser.add_argument("--tracker", help="Tracker IP address", nargs="?", default=defaults['trackerip'])
-    parser.add_argument("--filename", help="Filename of the shared file", nargs="?", default=defaults['filename'])
-    parser.add_argument("--swarmid", help="Hash value of the swarm", nargs="?", default=defaults['swarmid'])
-    parser.add_argument("--filesize", help="Size of the file", nargs="?", type=int, default=defaults['filesize'])
-    parser.add_argument("--live", help="Is this a live stream", nargs="?", type=bool, default=defaults['live'])
-    parser.add_argument("--livesrc", help="Is this a live stream source", nargs="?", type=bool, default=defaults['live_src'])
-    parser.add_argument("--numpeers", help="Limit the number of peers", nargs="?", type=int)
-    parser.add_argument("--identifier", help="Free text that will be added to the results file", nargs="?")
-    parser.add_argument("--tcp", help="Use TCP between the peers", nargs="?", default=defaults['tcp'])
+    parser.add_argument("--tracker", help="Tracker IP address", nargs='?', default=defaults['trackerip'])
+    parser.add_argument("--filename", help="Filename of the shared file", nargs=1, default=defaults['filename'])
+    parser.add_argument("--swarmid", help="Hash value of the swarm", nargs=1, default=defaults['swarmid'])
+    parser.add_argument("--filesize", help="Size of the file", nargs=1, type=int, default=defaults['filesize'])
+    
+    parser.add_argument("--live", help="Is this a live stream", action='store_true', default=defaults['live'])
+    parser.add_argument("--livesrc", help="Is this a live stream source", action='store_true', default=defaults['live_src'])
+    
+    parser.add_argument("--numpeers", help="Limit the number of peers", nargs=1, type=int)
+    parser.add_argument("--identifier", help="Free text that will be added to the results file", nargs=1)
+    parser.add_argument("--tcp", help="Use TCP between the peers", action='store_true', default=defaults['tcp'])
     parser.add_argument('--discardwnd', help="Live discard window size", nargs='?', default=defaults['discard_window'])
     parser.add_argument('--alto', help="Use ALTO server to rank peers", nargs='?', type=bool, default=defaults['alto'])
     parser.add_argument('--workdir', help='Change the working direcotry', nargs='?')
-    parser.add_argument('--skip', help='Allow skipping chunks when framer is stuck', nargs='?', type=bool, default=defaults['skip'])
+    parser.add_argument('--skip', help='Allow skipping chunks when framer is stuck', action='store_true', default=defaults['skip'])
 
     # Start the program
     args = parser.parse_args()
