@@ -29,12 +29,30 @@ class PeerProtocolTCP(asyncio.Protocol):
         # Do we have any swarm waiting for this connection?
         list_waiting = self._hive.check_if_waiting(self._ip, self._port)
         if list_waiting is not None:
+            
+            # Track of progress
+            swarms_added = []
+            swarms_failed = []
+
             for swarm_id in list_waiting:
                 logging.info('Found swarm {} waiting for the connection'.format(swarm_id))
                 swarm = self._hive.get_swarm(swarm_id)
                 m = swarm.AddMember(self._ip, self._port, self)
-                if m is not None:
+                if isinstance(m, str):
+                    swarms_failed.append(swarm_id)
+                else:
                     m.SendHandshake()
+                    swarms_added.append(swarm_id)
+
+            # Process results
+            any_added = any(swarms_added)
+            [list_waiting.remove(s) for s in swarms_added]
+            [list_waiting.remove(s) for s in swarms_failed]
+
+            # If no swarms added this as a member - disconnect connection
+            if not any_added:
+                self.force_close_connection()
+
         else:
             # Do we have any swarms that could accept this connection?
             if any(sw.any_free_peer_slots() for sw in self._hive._swarms.values()):

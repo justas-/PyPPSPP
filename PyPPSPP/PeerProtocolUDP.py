@@ -40,8 +40,8 @@ class PeerProtocolUDP(asyncio.DatagramProtocol):
         if my_channel == 0:
             # This is new peer making connection to us
             new_member = self.swarm.AddMember(addr[0], addr[1])
-            if new_member is None:
-                logging.warn("NOT IMPLEMENTED: Clean old member. add this one!!!")
+            if isinstance(new_member, str):
+                logging.warn("Failed to add member. Error: {}".format(new_member))
                 return
             new_member.ParseData(data)
         else:

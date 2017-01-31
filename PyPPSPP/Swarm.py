@@ -107,7 +107,7 @@ class Swarm(object):
                 filename = args.filename, 
                 filesize = args.filesize)
 
-        logging.info("Created Swarm with ID: {0}".format(self.swarm_id))
+        logging.info("Created Swarm with ID: {0}".format(args.swarmid))
 
         # Start printing stats
         self._periodic_stats_handle = asyncio.get_event_loop().call_later(
@@ -127,17 +127,25 @@ class Swarm(object):
     def AddMember(self, ip_address, port = 6778, proto = None):
         """Add a member to a swarm and try to initialize connection"""
         
+        # Check if the swarm is full
         if self._max_peers is not None and len(self._members) >= self._max_peers:
             logging.info("Swarm: Max number of peers reached (Skipping: {0}:{1})".format(ip_address, port))
-            return
+            return 'E_FULL'
+
+        # Check for duplicate members
+        if proto is None:
+            # UDP
+            if any([m for m in self._members if m.ip_address == ip_address and m.udp_port == port]):
+                logging.info('Member {0}:{1} is already present and will be ignorred'
+                             .format(ip_address, port))
+                return 'E_DUP_UDP'
+        else:
+            #TCP
+            if any([m for m in self._members if m.ip_address == ip_address]):
+                logging.info('Member at {0} is already present and will be ignorred'.format(ip_address))
+                return 'E_DUP_TCP'
 
         logging.info("Swarm: Adding member at {0}:{1}".format(ip_address, port))
-
-        for member in self._members:
-            if member.ip_address == ip_address and member.udp_port == port:
-                logging.info("Member {0}:{1} is already present and will be ignorred"
-                             .format(ip_address, port))
-                return None
 
         m = SwarmMember(self, ip_address, port, proto)
         self._members.append(m)

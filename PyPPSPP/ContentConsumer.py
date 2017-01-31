@@ -136,41 +136,38 @@ class ContentConsumer(object):
         assert len(chunk_data) == GlobalParams.chunk_size
 
         # Get the lock
-        self._data_lock.acquire()
+        with self._data_lock:
 
-        # Extra handling of tune-in:
-        if self._allow_tune_in and not self._consumer_locked:
+            # Extra handling of tune-in:
+            if self._allow_tune_in and not self._consumer_locked:
             
-            # Determine the DE status and position in the data stream
-            if chunk_data[0] == 0 and chunk_id >= self._next_frame:
+                # Determine the DE status and position in the data stream
+                if chunk_data[0] == 0 and chunk_id >= self._next_frame:
 
-                # Skip all frames before this frame if we are in the future
-                if chunk_id != self._next_frame:
-                    self._next_frame = chunk_id
+                    # Skip all frames before this frame if we are in the future
+                    if chunk_id != self._next_frame:
+                        self._next_frame = chunk_id
 
-                self._consumer_locked = True
-                logging.info('Locked content consumer on chunk id: {}'.format(chunk_id))
-            else:
-                # Discard the frame
-                self._next_frame = chunk_id + 1
-                return
+                    self._consumer_locked = True
+                    logging.info('Locked content consumer on chunk id: {}'.format(chunk_id))
+                else:
+                    # Discard the frame
+                    self._next_frame = chunk_id + 1
+                    return
 
-        # Track the biggest seen id
-        if chunk_id > self._biggest_seen_chunk:
-            self._biggest_seen_chunk = chunk_id
+            # Track the biggest seen id
+            if chunk_id > self._biggest_seen_chunk:
+                self._biggest_seen_chunk = chunk_id
 
-        # Feed the framer as required
-        if chunk_id == self._next_frame:
-            self._framer.DataReceived(chunk_data[1:])
-            self._next_frame += 1
+            # Feed the framer as required
+            if chunk_id == self._next_frame:
+                self._framer.DataReceived(chunk_data[1:])
+                self._next_frame += 1
 
-        # If we have a gap - try to fill it
-        if self._biggest_seen_chunk > self._next_frame:
-            self.feed_q_until_max()
+            # If we have a gap - try to fill it
+            if self._biggest_seen_chunk > self._next_frame:
+                self.feed_q_until_max()
 
-        # Release the lock
-        self._data_lock.release()
-        
     def __data_framed(self, data):
         # Called by framer when full A/V frame is ready
         av_data = pickle.loads(data)

@@ -63,6 +63,10 @@ class SimpleTracker(object):
             # Always save information about other peers
             swarm.add_other_peers([tuple(x) for x in data['details']])
 
+            # If we are live source - let others connect to us
+            if swarm.live and swarm.live_src:
+                return
+
             if self._use_alto:
                 self.handle_other_peers_alto(swarm, data)
                 return
@@ -77,13 +81,16 @@ class SimpleTracker(object):
             # Add to known peers list
             swarm.add_other_peers([tuple(endpoint)])
 
+            # If we are live source - let others connect to us
+            if swarm.live and swarm.live_src:
+                return
+
             if swarm.any_free_peer_slots():
                 self.add_tcp_member(swarm, endpoint[0], endpoint[1])
             else:
                 logging.info('Swarm {} has no free slots. Ignoring'.format(swarm.swarm_id))
         elif data['type'] == 'remove_node':
-            endpoint = data['endpoint']
-            swarm.remove_other_nodes([endpoint])
+            swarm.remove_other_peers([data['endpoint']])
         else:
             logging.warn('Unknown message received from the tracker: {}'
                          .format(data['type']))
@@ -95,7 +102,10 @@ class SimpleTracker(object):
         if proto is not None:
             # Connection to the given peer is already there - start handshake
             member = swarm.AddMember(ip_address, port, proto)
-            if member is not None:
+            if isinstance(member, str):
+                # Some error
+                pass
+            else:
                 member.SendHandshake()
         else:
             # Initiate a new coonection to the given peer
@@ -112,13 +122,12 @@ class SimpleTracker(object):
             if swarm._args.tcp:
                 self.add_tcp_member(swarm, member[0], member[1])
             else:
+                # This is UDP
                 m = swarm.AddMember(member[0], member[1])
-                if m != None:
+                if isinstance(m, str):
+                    pass
+                else:
                     m.SendHandshake()
-                for member in mem_copy:
-                    m = self._swarm.AddMember(member[0], member[1])
-                    if m != None:
-                        m.SendHandshake()
 
     def handle_other_peers_alto(self, swarm, data):
         """Handle other_peers message when using ALTO"""
@@ -144,7 +153,9 @@ class SimpleTracker(object):
         for cost in costs:
             for member in net_costs[cost]:
                 m = self._swarm.AddMember(member[0], member[1])
-                if m != None:
+                if isinstance(m, str):
+                    pass
+                else:
                     m.SendHandshake()
 
     def register_in_tracker(self, swarm_id: str, port: int):

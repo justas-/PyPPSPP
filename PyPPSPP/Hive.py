@@ -27,10 +27,7 @@ class Hive(object):
 
     def get_swarm(self, swarm_id):
         """Get the indicated swarm from the swarms storage"""
-        if swarm_id in self._swarms:
-            return self._swarms[swarm_id]
-        else:
-            return None
+        return self._swarms.get(swarm_id)
 
     def add_orphan_connection(self, proto):
         """Add a connection until it is owned"""
@@ -55,32 +52,42 @@ class Hive(object):
 
     def make_connection(self, ip, port, swarm_id):
         """Strat the outgoing connection and inform the given swarm once done"""
-        logging.info("Making connection to: {}:{}".format(ip, port))
+
         swarm_id_str = binascii.hexlify(swarm_id).decode('ascii')
+        logging.info('Request for connection to: {}:{} for swarm: {}'.format(ip, port, swarm_id_str))
+        
+        # Check if swarm id is valid
         swarm = self.get_swarm(swarm_id_str)
         if swarm is None:
-            logging.warn("Swarm {} not found. Connection will not be made!".format(swarm_id_str))
+            logging.warn('Swarm {} not found. Connection will not be made!'.format(swarm_id_str))
             return
-        #
-        #socket = swarm._socket
-        
+
+        # Check if connection is already initiated
+        pending = self._pending_connection.get((ip, port))
+        if pending is not None:
+            # There are already connection pending to the endpoint
+            if swarm_id_str in pending:
+                logging.info('Connection to {}:{} for swarm {} is already pending'
+                             .format(ip, port, swarm_id_str))
+                return
+
         # Make the connection
         loop = asyncio.get_event_loop()
         connect_coro = loop.create_connection(lambda: PeerProtocolTCP(self), ip, port)
         loop.create_task(connect_coro)
-
-        logging.info("Connection initiated")
+        logging.info('Connection coro to {}:{} created'.format(ip, port))
 
         # Add to a list of pending connectiosns
-        # TODO: Check for duplicates
-        self._pending_connection[(ip, port)] = [swarm_id_str]
+        if pending is None:
+            # No connections pending - make list with our swarm id
+            self._pending_connection[(ip, port)] = [swarm_id_str]
+        else:
+            # Some connections already pending - append our ID string
+            self._pending_connection[(ip, port)].append(swarm_id_str)
 
     def check_if_waiting(self, ip, port):
         """Check if given connection is being awaited by any swarm"""
-        if (ip, port) in self._pending_connection:
-            return self._pending_connection[(ip, port)]
-        else:
-            return None
+        return self._pending_connection.get((ip, port))
 
     def close_all_swarms(self):
         """Close all swarms in the Hive"""
