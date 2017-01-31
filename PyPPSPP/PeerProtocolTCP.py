@@ -138,7 +138,10 @@ class PeerProtocolTCP(asyncio.Protocol):
             else:
                 swarm._all_data_rx += len(data)
                 m = swarm.AddMember(self._ip, self._port, self)
-                if m is not None:
+                if isinstance(m, str):
+                    # Error
+                    return
+                else:
                     m.ParseData(data)
 
     def register_member(self, member):
