@@ -90,7 +90,7 @@ class SimpleTracker(object):
             else:
                 logging.info('Swarm {} has no free slots. Ignoring'.format(swarm.swarm_id))
         elif data['type'] == 'remove_node':
-            swarm.remove_other_peers([data['endpoint']])
+            swarm.remove_other_peers([tuple(data['endpoint'])])
         else:
             logging.warn('Unknown message received from the tracker: {}'
                          .format(data['type']))
