@@ -231,32 +231,37 @@ class Swarm(object):
             # Ensure we are above the discard threshold
             required_chunks = [x for x in req_chunks_no_filter if x > self._last_discarded_id]
 
-            # Print stats if interesting
-            if any(required_chunks) or any(member.set_i_requested):
-                logging.info('Member: {}. I need {}; Outstanding: {}'
-                             .format(member, len(required_chunks), len(member.set_i_requested)))
+            b_any_required = any(required_chunks)
+            b_any_outstanding = any(member.set_i_requested)
+
+            # Not needing anything and not waiting for anything
+            if not b_any_outstanding and not b_any_required:
+                continue
+
+            num_required = len(required_chunks)
+            num_outstanding = len(member.set_i_requested)
+
+            logging.info('(Greedy Alg) Member: {}. I need {}; Outstanding: {}'
+                         .format(member, num_required, num_outstanding))
             
-            # Fast continue if nothing is required
-            if not any(required_chunks):
+            # Continue if there's nothing to request
+            if not b_any_required:
                 continue
 
-            # Calc stats
-            num_need = len(required_chunks)
-            num_waiting = len(member.set_i_requested)
-
-            # Skip requesting if there is a lot outstanding already
-            if num_waiting > 350:
+            # Continue if backlog is large
+            if num_outstanding > 350:
                 continue
 
-            # Request up to 300 chunks from smallest to largest
-            if num_need > 300:
+            # Request up to REQ_LIMIT chunks
+            REQ_LIMIT = 300
+            if num_required > REQ_LIMIT:
                 required_chunks.sort()
-                required_chunk = required_chunks[0:300]
+                required_chunks = required_chunks[0:REQ_LIMIT]
             
             # Request the data and keep track of requests
-            set_need = set(required_chunks)
-            member.RequestChunks(set_need)
-            all_req_local = all_req_local | set_need
+            set_to_request = set(required_chunks)
+            member.RequestChunks(set_to_request)
+            all_req_local = all_req_local | set_to_request
 
         # Schedule a call to select chunks again
         self._chunk_selction_handle = asyncio.get_event_loop().call_later(
@@ -366,6 +371,12 @@ class Swarm(object):
     def SendHaveToMembers(self):
         """Send to members all information about chunks we have"""
         
+        init_members = [m for m in self._members if m.is_init]
+        num_verified = len(init_members)
+
+        logging.info("Sending HAVE({}) to init peers ({})"
+                     .format(self._have_ranges, num_verified))
+
         # Build representation of our data using HAVE messages
         msg = bytearray()
         for range_data in self._have_ranges:
@@ -375,7 +386,7 @@ class Swarm(object):
             msg.extend(have.BuildBinaryMessage())
 
         # Send our information to all members
-        for member in self._members:
+        for member in init_members:
             hs = bytearray()
             hs.extend(struct.pack('>I', member.remote_channel))
             hs.extend(msg)

@@ -16,8 +16,31 @@ from Hive import Hive
 
 
 def main(args):
-    logging.info("PPSPP Parameters:\n\tTracker: {};\n\tFilename: {};\n\tFilesize: {}B;\n\tSwarm: {};\n\tLive: {};\n\tLive Source: {};\n\tAlto: {};\n\tNum peers: {};\n\tIdentifier: {};\n\tSkip: {};"
-                 .format(args.tracker, args.filename, args.filesize, args.swarmid, args.live, args.livesrc, args.alto, args.numpeers, args.identifier, args.skip))
+    logging.info("""PPSPP Parameters:
+        Tracker: {};
+        Filename: {};
+        Filesize: {}B;
+        Swarm: {};
+        Live: {};
+        Live Source: {};
+        Alto: {};
+        Num peers: {};
+        Identifier: {};
+        Skip: {};
+        DiscardWnd: {};
+    """.format(
+            args.tracker, 
+            args.filename, 
+            args.filesize, 
+            args.swarmid, 
+            args.live, 
+            args.livesrc, 
+            args.alto, 
+            args.numpeers, 
+            args.identifier, 
+            args.skip,
+            args.discardwnd
+    ))
 
     if 'workdir' in args and args.workdir is not None:
         logging.info('Changing work directory to: {}'.format(args.workdir))

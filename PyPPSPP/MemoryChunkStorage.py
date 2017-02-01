@@ -209,7 +209,6 @@ class MemoryChunkStorage(AbstractChunkStorage):
            This alg is optimized for live source use case!
         """
         self.BuildHaveRangesLiveSrc()
-        logging.info("Sending HAVE({}) to connected peers ()".format(self._swarm._have_ranges))
         self._swarm.SendHaveToMembers()
 
     def inject_chunks(self, chunks):
