@@ -16,11 +16,9 @@ class VODSendRequestedChunks(AbstractSendRequestedChunks):
     def SendAndSchedule(self):
         # Choose what to send
         set_to_send = (self._swarm.set_have & self._member.set_requested) - self._member.set_sent
-        #set_to_send = self._swarm.set_have - self._member.set_sent
-        #set_to_send = (self._swarm.set_have & self._member.set_requested)
-        outstanding_len = len(set_to_send)
+        b_any_required = any(set_to_send)
 
-        if outstanding_len > 0:
+        if b_any_required:
             # We have stuff to send - all is fine
             chunk_to_send = min(set_to_send)
        
@@ -43,10 +41,16 @@ class VODSendRequestedChunks(AbstractSendRequestedChunks):
                 self._member.SendAndAccount(mdata_bin)
                 self._member.set_sent.add(chunk_to_send)
 
-                if self._counter % 100 == 0:
-                    logging.info("Can serve: {0}/{1} chunks. Sent {2} chunk"
-                                .format(len(set_to_send), len(self._swarm.set_have), chunk_to_send))
                 self._counter += 1
+                if self._counter % 100 == 0:
+                    logging.info("(VODSend) Member: {} Can/All: {}/{}. Last: {}"
+                                .format(
+                                    self._member,
+                                    len(set_to_send),
+                                    len(self._swarm.set_have), 
+                                    chunk_to_send
+                                )
+                    )
 
             # If we have stuff to send - do not throttle
             self._member._sending_handle = asyncio.get_event_loop().call_soon(
@@ -56,8 +60,3 @@ class VODSendRequestedChunks(AbstractSendRequestedChunks):
             # We have nothing to send - throttle sending
             self._member._sending_handle = asyncio.get_event_loop().call_later(
                 0.01, self._member.SendRequestedChunks)
-
-
-
-
-
