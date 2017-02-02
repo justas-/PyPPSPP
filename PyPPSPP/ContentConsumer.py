@@ -42,7 +42,7 @@ class ContentConsumer(object):
         try:
             # Keep beffering for some time
             self._buffer_start = time.time()
-            while self._q.qsize() < 100:
+            while self._q.qsize() < 500:
                 time.sleep(0.25) 
 
             # Set the start time

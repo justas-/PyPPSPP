@@ -16,9 +16,8 @@ class VODSendRequestedChunks(AbstractSendRequestedChunks):
     def SendAndSchedule(self):
         # Choose what to send
         set_to_send = (self._swarm.set_have & self._member.set_requested) - self._member.set_sent
-        b_any_required = any(set_to_send)
 
-        if b_any_required:
+        if any(set_to_send):
             # We have stuff to send - all is fine
             chunk_to_send = min(set_to_send)
        

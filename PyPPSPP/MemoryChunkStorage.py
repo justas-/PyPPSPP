@@ -229,26 +229,43 @@ class MemoryChunkStorage(AbstractChunkStorage):
         self._swarm._have_ranges.append((self._swarm._last_discarded_id + 1, self._last_inject_id))
     
     def BuildHaveRanges(self):
-        # Build live ranges in all other nodes
-        # TODO: Optimize this
+        """Build HAVE ranges"""
+        
+        # In data len: 18177 (Shuffled)
+        # 8758d5ffb54d9fe6f4cec3ead8fb6d7c19454f01 
+        # 30 runs: time: 161.36131001623446. Time per run: 5.378710333874482
+        # Latest:
+        # 30 runs: time: 7.854214742891969. Time per run: 0.261807158096399
+        # For live streaming with 20K continuous items speed for new is about twice faster
+
         present_chunks = list(self._chunks)
         present_chunks.sort()
-        
-        self._swarm._have_ranges.clear()
+
+        ranges = []
 
         in_range = False
         x_min = 0
-        for x in present_chunks:
-            if in_range == False:
-                x_min = x
+        num_chunks = len(present_chunks)
+
+        for key, chunk_num in enumerate(present_chunks):
+            if not in_range:
+                x_min = chunk_num
                 in_range = True
-        
+
             if in_range:
-                if x + 1 in present_chunks:
+                # Check for end
+                if num_chunks == key + 1:
+                    ranges.append((x_min, chunk_num))
+                    break
+                # Not the end -> check next
+                elif present_chunks[key+1] == chunk_num + 1:
                     continue
+                # Range ends here - add as a resulting range
                 else:
-                    self._swarm._have_ranges.append((x_min, x))
+                    ranges.append((x_min, chunk_num))
                     in_range = False
+
+        self._swarm._have_ranges = ranges
 
     def discard_old_chunks(self):
         """Discard chunks below the discard threshold"""

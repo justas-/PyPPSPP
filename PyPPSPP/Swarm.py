@@ -229,7 +229,10 @@ class Swarm(object):
             req_chunks_no_filter = member.set_have - self.set_have - all_req_local
             
             # Ensure we are above the discard threshold
-            required_chunks = [x for x in req_chunks_no_filter if x > self._last_discarded_id]
+            if self.discard_wnd is not None:
+                required_chunks = [x for x in req_chunks_no_filter if x > self._last_discarded_id]
+            else:
+                required_chunks = list(req_chunks_no_filter)
 
             b_any_required = any(required_chunks)
             b_any_outstanding = any(member.set_i_requested)
@@ -241,7 +244,7 @@ class Swarm(object):
             num_required = len(required_chunks)
             num_outstanding = len(member.set_i_requested)
 
-            logging.info('(Greedy Alg) Member: {}. I need {}; Outstanding: {}'
+            logging.info('(Greedy) Member: {}. I need {}; Outstanding: {}'
                          .format(member, num_required, num_outstanding))
             
             # Continue if there's nothing to request
@@ -253,7 +256,7 @@ class Swarm(object):
                 continue
 
             # Request up to REQ_LIMIT chunks
-            REQ_LIMIT = 300
+            REQ_LIMIT = 500
             if num_required > REQ_LIMIT:
                 required_chunks.sort()
                 required_chunks = required_chunks[0:REQ_LIMIT]
