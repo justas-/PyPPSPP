@@ -28,6 +28,7 @@ def main(args):
         Identifier: {};
         Skip: {};
         DiscardWnd: {};
+        Buffer Sz: {};
     """.format(
             args.tracker, 
             args.filename, 
@@ -39,7 +40,8 @@ def main(args):
             args.numpeers, 
             args.identifier, 
             args.skip,
-            args.discardwnd
+            args.discardwnd,
+            args.buffsz
     ))
 
     if 'workdir' in args and args.workdir is not None:
@@ -162,6 +164,7 @@ if __name__ == "__main__":
     defaults['discard_window'] = 1000
     defaults['alto'] = False
     defaults['skip'] = False
+    defaults['buffsz'] = 500
 
     # Parse command line parameters
     parser = argparse.ArgumentParser(description="Python implementation of PPSPP protocol")
@@ -180,6 +183,7 @@ if __name__ == "__main__":
     parser.add_argument('--alto', help="Use ALTO server to rank peers", nargs='?', type=bool, default=defaults['alto'])
     parser.add_argument('--workdir', help='Change the working direcotry', nargs='?')
     parser.add_argument('--skip', help='Allow skipping chunks when framer is stuck', action='store_true', default=defaults['skip'])
+    parser.add_argument('--buffsz', help='Buffer size (chunks) in Content Consumer', nargs=1, type=int, default=defaults['buffsz'])
 
     # Start the program
     args = parser.parse_args()

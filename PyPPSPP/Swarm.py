@@ -97,7 +97,7 @@ class Swarm(object):
                 self._cont_generator.start_generating()
             else:
                 # Start requesting if not source
-                self._cont_consumer = ContentConsumer(self)
+                self._cont_consumer = ContentConsumer(self, args)
                 self._cont_consumer.allow_tune_in()
                 self.StartChunkRequesting()
                 self._cont_consumer.start_consuming()

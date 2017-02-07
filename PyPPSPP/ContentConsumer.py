@@ -11,7 +11,7 @@ from Framer import Framer
 class ContentConsumer(object):
     """A class to consume the content"""
 
-    def __init__(self, swarm):
+    def __init__(self, swarm, args):
         self._swarm = swarm
         self._loop = asyncio.get_event_loop()
         self._fps = 10
@@ -25,6 +25,7 @@ class ContentConsumer(object):
         self._consumer_locked = False   # Is the consumer locked to the right position in the datastream
         self._allow_tune_in = False     # Allow the client to tune-in (see method for explanation)
         self._data_lock = threading.Lock()
+        self._video_buffer_sz = args.buffsz     # How many chunks to download before starting playback
 
         self._frames_consumed = 0       # Number of A/V frames shown
         self._frames_missed = 0         # Number of frames that was not there when needed
@@ -42,7 +43,7 @@ class ContentConsumer(object):
         try:
             # Keep beffering for some time
             self._buffer_start = time.time()
-            while self._q.qsize() < 500:
+            while self._q.qsize() < self._video_buffer_sz:
                 time.sleep(0.25) 
 
             # Set the start time
