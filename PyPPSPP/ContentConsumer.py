@@ -106,7 +106,7 @@ class ContentConsumer(object):
                         pct_missed, 
                         int(self._stop_time - self._first_frame_time),
                         self._consume_run,
-                        self._first_frame_time - self._start_time))
+                        self._first_frame_time - self._buffer_start))
 
     def data_received(self, chunk_id, data):
         # Track the biggest seen id
