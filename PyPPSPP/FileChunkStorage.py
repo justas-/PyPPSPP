@@ -13,7 +13,7 @@ class FileChunkStorage(AbstractChunkStorage):
     def __init__(self, swarm):
         super().__init__(swarm)
 
-        self._mht = None
+        self._mht = MerkleHashTree('sha1', GlobalParams.chunk_size)
         self._file = None
         self._file_completed = False
         self._file_size = 0
@@ -31,14 +31,18 @@ class FileChunkStorage(AbstractChunkStorage):
         self._file_name = filename
         self._file_size = filesize
 
-        if (os.path.isfile(filename)):
+        if os.path.isfile(filename):
             logging.info("File found. Checking integrity")
-            self._mht = MerkleHashTree('sha1', filename, GlobalParams.chunk_size)
-            if self._swarm.swarm_id == self._mht.root_hash:
+            root_hash = self._mht.get_file_hash(filename)
+            
+            if root_hash is None:
+                logging.info('Root Hash calculation failed. Creating new file')
+                self.InitNewFile()
+            elif self._swarm.swarm_id == root_hash:
                 logging.info("File integrity checking passed. Starting to share the file")
                 self.InitValidFile()
             else:
-                logging.info("File integrity checking failed. Calculated hash: {}. Recreating file!".format(self._mht.root_hash))
+                logging.info("File integrity checking failed. Calculated hash: {}. Recreating file!".format(root_hash))
                 self.InitNewFile()
         else:
             logging.info("No file found. Creating an empty file")

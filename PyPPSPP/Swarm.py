@@ -13,7 +13,6 @@ import binascii
 
 from SwarmMember import SwarmMember
 from GlobalParams import GlobalParams
-from MerkleHashTree import MerkleHashTree
 from Messages import *
 from PeerProtocolTCP import PeerProtocolTCP
 

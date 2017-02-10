@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>995bf44d-b813-475a-b315-c022513f8d15</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>PyPPSPP.py</StartupFile>
+    <StartupFile>BuildVODFile.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -29,6 +29,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ALTOInterface.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="BuildVODFile.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ContentConsumer.py">

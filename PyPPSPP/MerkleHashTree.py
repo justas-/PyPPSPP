@@ -1,88 +1,121 @@
+"""
+Implement Merkle Hash Tree calculation functions.
+"""
 import os
 import hashlib
 import math
+import io
+import logging
 
 class MerkleHashTree(object):
     """Helper class for dealing with Merkle Hash Tree"""
     # TODO: Peak Hashes
 
-    def __init__(self, hash_funct, file_name, chunk_len):
+    def __init__(self, hash_funct, chunk_len):
         """Initialize Merkle Hash Tree using given hash function and file"""
 
         self._hash_func = hash_funct
         self._chunk_len = chunk_len
 
-        self._file_handle = open(file_name, 'rb')
-        self._file_len = os.stat(file_name).st_size
+    def get_file_hash(self, filename):
+        """Get Merkle hash of a given file"""
 
-        # This is empty file, no way to calk Merkle Hash
-        if self._file_len == 0:
-            self.root_hash = '\x00'
-            self._file_handle.close()
-            return
-        
-        # Number of hashes from the file
-        self._tree_populated_width = math.ceil(self._file_len / chunk_len)
-        # Height of the tree
-        self._tree_height = math.ceil(math.log2(self._tree_populated_width))
-        # Total number of leaf nodes for balanced tree
-        self._tree_all_width = int(math.pow(2,self._tree_height))
+        try:
+            file_len = os.stat(filename).st_size
+        except OSError as exc:
+            logging.error('Opening file: %s raised exception: %s', filename, exc)
+            return None
 
-        # Fill bottom layer
-        self._bottom_layer = ['\x00'] * self._tree_all_width
-        self.FillBotomLayer()
+        if file_len == 0:
+            logging.warning('Given file %s is empty!', filename)
+            return None
 
-        # Get Root Hash
-        self.root_hash = None
-        self.CalculateRootHash()
+        # Calculate tree parameters
+        tree_populated_width = math.ceil(file_len / self._chunk_len)
+        tree_height = math.ceil(math.log2(tree_populated_width))
+        tree_width = int(math.pow(2, tree_height))
 
-        # Close the file handle
-        self._file_handle.close()
-        
-    def FillBotomLayer(self):
-        for x in range(0, self._tree_populated_width):
-            # Read file and calculate hash
-            data = self._file_handle.read(self._chunk_len)
+        # Fill bottom layer with file's hashes
+        tree_bottom_layer = ['\x00'] * tree_width
+        with open(filename, 'rb') as file_hdl:
+            self._initial_hasher(
+                file_hdl,
+                tree_populated_width,
+                tree_bottom_layer
+            )
+
+        # Get Merkle's root hash
+        mrh = self._calculate_root_hash(tree_bottom_layer)
+        return mrh
+
+    def get_data_hash(self, data_bytes):
+        """Calculate Merkle's root hash of the given data bytes"""
+
+        # Calculate tree parameters
+        data_len = len(data_bytes)
+        tree_populated_width = math.ceil(data_len / self._chunk_len)
+        tree_height = math.ceil(math.log2(tree_populated_width))
+        tree_width = int(math.pow(2, tree_height))
+
+        tree_bottom_layer = ['\x00'] * tree_width
+        with io.BytesIO(data_bytes) as b_data:
+            self._initial_hasher(
+                b_data,
+                tree_populated_width,
+                tree_bottom_layer
+            )
+
+        # Get Merkle's root hash
+        mrh = self._calculate_root_hash(tree_bottom_layer)
+        return mrh
+
+    def _initial_hasher(self, stream, num_chunks, buffer):
+        """Fill initial hash values"""
+        for chunkid in range(num_chunks):
+            data = stream.read(self._chunk_len)
             hasher = hashlib.new(self._hash_func)
             hasher.update(data)
-            self._bottom_layer[x] = hasher.digest()
+            buffer[chunkid] = hasher.digest()
 
-
-    def CalculateRootHash(self):
+    def _calculate_root_hash(self, data):
+        """Calculate Merkle's root hash of the given data"""
         working_list = []
+        data_len = len(data) # Length of tree's bottom layer
 
-        for x in [z for z in range(0, self._tree_all_width) if z % 2 == 0]:
-            if self._bottom_layer[x] != '\x00' and self._bottom_layer[x+1] != '\x00':
+        for x in range(0, data_len, 2):
+            if data[x] != '\x00' and data[x+1] != '\x00':
                 # Both children are normal hashes
                 hasher = hashlib.new(self._hash_func)
-                hasher.update(self._bottom_layer[x] + self._bottom_layer[x+1])
+                hasher.update(data[x] + data[x+1])
                 working_list.append(hasher.digest())
-            elif self._bottom_layer[x] != '\x00' and self._bottom_layer[x+1] == '\x00':
-                # Second children is null hash
+            elif data[x] != '\x00' and data[x+1] == '\x00':
+                # Second child is null hash
                 hasher = hashlib.new(self._hash_func)
-                hasher.update(self._bottom_layer[x] + hasher.digest_size * bytes([0]))
+                hasher.update(data[x] + hasher.digest_size * bytes([0]))
                 working_list.append(hasher.digest())
             else:
                 # Both children are null hashes
                 working_list.append('\x00')
 
         while len(working_list) != 1:
+            # Eache iteration reduces list in half, until only one hash is left
             inner_list = working_list[:]
             working_list.clear()
-            
-            for x in [z for z in range(0, len(inner_list)) if z % 2 == 0]:
+            inner_len = len(inner_list)
+
+            for x in range(0, inner_len, 2):
                 if inner_list[x] != '\x00' and inner_list[x+1] != '\x00':
                     # Both children are normal hashes
                     hasher = hashlib.new(self._hash_func)
                     hasher.update(inner_list[x] + inner_list[x+1])
                     working_list.append(hasher.digest())
                 elif inner_list[x] != '\x00' and inner_list[x+1] == '\x00':
-                    # Second children is null hash
+                    # Second child is null hash
                     hasher = hashlib.new(self._hash_func)
                     hasher.update(inner_list[x] + hasher.digest_size * bytes([0]))
                     working_list.append(hasher.digest())
                 else:
                     # Both children are null hashes
                     working_list.append('\x00')
-            
-        self.root_hash = working_list[0]
+
+        return working_list[0]

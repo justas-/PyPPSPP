@@ -1,3 +1,6 @@
+"""
+Generate content based on frame lengths given in CSV files.
+"""
 import asyncio
 import csv
 
@@ -10,7 +13,7 @@ class ContentGenerator(object):
 
         self._video_samples = []
         self._audio_samples = []
-        self.__init_samples()
+        self._init_samples()
 
         self._gen_handle = None
         self._fps = 10
@@ -29,7 +32,7 @@ class ContentGenerator(object):
            is generated"""
         self._gen_callbacks.remove(callback)
 
-    def __call_on_generated(self, data):
+    def _call_on_generated(self, data):
         """Call all callbacks with generated data"""
         for cb in self._gen_callbacks:
             cb(data)
@@ -42,50 +45,58 @@ class ContentGenerator(object):
             raise Exception
 
         # Send next and start scheduling
-        self.__gen_next()
+        self._gen_next()
 
     def stop_generating(self):
         """Stop and reset the generator"""
         self._gen_handle.cancel()
         self._gen_handle = None
 
-    def __gen_next(self):
+    def _gen_next(self):
         """Generate and schedule next output"""
 
         # Wrap
         if self._next_key == min([len(self._audio_samples), len(self._video_samples)]):
             self._next_key = 0
 
+        # Generate data
+        avdata = self._get_next_avdata(self._next_key)
+
+        # Send av_data
+        self._call_on_generated(avdata)
+
+        # Schedule next generation
+        self._next_key += 1
+        self._gen_handle = self._loop.call_later(1 / self._fps, self._gen_next)
+
+    def _get_next_avdata(self, sameple_id):
+        """Get next AV data piece"""
+
         # Get Sample
-        video_sample = self._video_samples[self._next_key]
-        audio_sample = self._audio_samples[self._next_key]
+        video_sample = self._video_samples[sameple_id]
+        audio_sample = self._audio_samples[sameple_id]
 
         # Save as object
-        f = {}
-        f['id'] = self._next_key # seq num
+        av_data = {}
+        av_data['id'] = sameple_id              # seq num
 
         int_k = int(video_sample['key'])        # Size of key frame
         int_n = int(video_sample['non-key'])    # Size of non-key frame
 
         if  int_n == 0:
             # Key frame has size -> key-frame
-            f['vk'] = 1   # key-frame -> 1
-            f['vd'] = int_k * bytes([192]) # video data
+            av_data['vk'] = 1   # key-frame -> 1
+            av_data['vd'] = int_k * bytes([192]) # video data
         else:
-            f['vk'] = 0   # key-frame -> 1
-            f['vd'] = int_n * bytes([192]) # video data
+            av_data['vk'] = 0   # key-frame -> 1
+            av_data['vd'] = int_n * bytes([192]) # video data
 
-        f['ad'] = int(audio_sample['size']) * bytes([192]) # audio data
-        f['in'] = 'Quick Brow Fox!'
+        av_data['ad'] = int(audio_sample['size']) * bytes([192]) # audio data
+        av_data['in'] = 'Quick Brow Fox!'
 
-        # Send video frame
-        self.__call_on_generated(f)
+        return av_data
 
-        # Schedule next generation
-        self._next_key += 1
-        self._gen_handle = self._loop.call_later(1 / self._fps, self.__gen_next)
-
-    def __init_samples(self):
+    def _init_samples(self):
         with open('CSV_Audio_Frames.csv', 'r') as audio_csv:
             ar = csv.DictReader(audio_csv)
             self._audio_samples = list(ar)
