@@ -177,13 +177,13 @@ if __name__ == "__main__":
     parser.add_argument("--livesrc", help="Is this a live stream source", action='store_true', default=defaults['live_src'])
     
     parser.add_argument("--numpeers", help="Limit the number of peers", nargs=1, type=int)
-    parser.add_argument("--identifier", help="Free text that will be added to the results file", nargs=1)
+    parser.add_argument("--identifier", help="Free text that will be added to the results file", nargs='?')
     parser.add_argument("--tcp", help="Use TCP between the peers", action='store_true', default=defaults['tcp'])
     parser.add_argument('--discardwnd', help="Live discard window size", nargs='?', default=defaults['discard_window'])
     parser.add_argument('--alto', help="Use ALTO server to rank peers", nargs='?', type=bool, default=defaults['alto'])
     parser.add_argument('--workdir', help='Change the working direcotry', nargs='?')
     parser.add_argument('--skip', help='Allow skipping chunks when framer is stuck', action='store_true', default=defaults['skip'])
-    parser.add_argument('--buffsz', help='Buffer size (chunks) in Content Consumer', nargs=1, type=int, default=defaults['buffsz'])
+    parser.add_argument('--buffsz', help='Buffer size (chunks) in Content Consumer', nargs='?', type=int, default=defaults['buffsz'])
 
     # Start the program
     args = parser.parse_args()
