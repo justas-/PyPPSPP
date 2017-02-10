@@ -36,7 +36,11 @@ class ContentConsumer(object):
         self._buffer_start = 0          # Time when buffering stops and consuming start
         self._num_skipped = 0           # Number of data chunks skipped
 
-        
+
+    def last_consumed(self):
+        """Return ID of the last consumed chunk ID"""
+        return self._next_frame - 1
+
     def thread_entry(self):
         """Entry point for consumption happening in the thread"""
 

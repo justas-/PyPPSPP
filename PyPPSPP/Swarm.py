@@ -38,6 +38,11 @@ class Swarm(object):
         else:
             self.discard_wnd = None
 
+        if args.dlfwd is not None:
+            self.dlfwd = args.dlfwd
+        else:
+            self.dlfwd = 0
+
         self._socket = socket
         self._members = []
         self._known_peers = set()       # Set of (IP, Port) tuples of other known peers
@@ -223,16 +228,33 @@ class Swarm(object):
         # Have local copy to save recomputing each time
         all_req_local = self._get_all_requested()
 
+        # Take note what is the last chunkid fed into Content consumer
+        if self._cont_consumer is None:
+            logging.error('Forward window set, but missing content consumer! Dlfwd will be turned off!')
+            self.dlfwd = 0
+        else:
+            max_permitted = last_consumed + self.dlfwd
+
         # Check all members for any missing pieces
         for member in self._members:
             # Build missing chunks
             req_chunks_no_filter = member.set_have - self.set_have - all_req_local
             
-            # Ensure we are above the discard threshold
+            # Filter for Discard and Forward Windows
             if self.discard_wnd is not None:
-                required_chunks = [x for x in req_chunks_no_filter if x > self._last_discarded_id]
+                if self.dlfwd != 0:
+                    # DL & Discard windows 
+                    required_chunks = [x for x in req_chunks_no_filter if x > self._last_discarded_id and x < max_permitted]
+                else:
+                    # Discard window only
+                    required_chunks = [x for x in req_chunks_no_filter if x > self._last_discarded_id]
             else:
-                required_chunks = list(req_chunks_no_filter)
+                if self.dlfwd != 0:
+                    # Only DL Window filtering
+                    required_chunks = [x for x in req_chunks_no_filter if x < max_permitted]
+                else:
+                    # No filtering
+                    required_chunks = list(req_chunks_no_filter)
 
             b_any_required = any(required_chunks)
             b_any_outstanding = any(member.set_i_requested)

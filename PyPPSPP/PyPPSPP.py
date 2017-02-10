@@ -29,6 +29,7 @@ def main(args):
         Skip: {};
         DiscardWnd: {};
         Buffer Sz: {};
+        Dl Fwd: {};
     """.format(
             args.tracker, 
             args.filename, 
@@ -41,7 +42,8 @@ def main(args):
             args.identifier, 
             args.skip,
             args.discardwnd,
-            args.buffsz
+            args.buffsz,
+            args.dlfwd
     ))
 
     if 'workdir' in args and args.workdir is not None:
@@ -165,6 +167,7 @@ if __name__ == "__main__":
     defaults['alto'] = False
     defaults['skip'] = False
     defaults['buffsz'] = 500
+    defaults['dlfwd'] = 0
 
     # Parse command line parameters
     parser = argparse.ArgumentParser(description="Python implementation of PPSPP protocol")
@@ -184,6 +187,10 @@ if __name__ == "__main__":
     parser.add_argument('--workdir', help='Change the working direcotry', nargs='?')
     parser.add_argument('--skip', help='Allow skipping chunks when framer is stuck', action='store_true', default=defaults['skip'])
     parser.add_argument('--buffsz', help='Buffer size (chunks) in Content Consumer', nargs='?', type=int, default=defaults['buffsz'])
+    # In VOD scenarios and when data is available, a client might want to request only some 
+    # chunks in 'front' of its' playback position. This parameter sets moving window
+    # size, where reference point is last chunk fed into the video framer. 0 - No limit
+    parser.add_argument('--dlfwd', help='Number of chunks to request after last played', nargs='?', type=int, default=defaults['dlfwd'])
 
     # Start the program
     args = parser.parse_args()
