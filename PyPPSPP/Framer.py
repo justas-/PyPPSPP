@@ -55,9 +55,6 @@ class Framer(object):
                 # Build the package and continue
                 self._data_callback(self._data_buf[0:self._data_len])
 
-                if self._av_framer:
-                    logging.info('Deframed %s:%s', self._range_start, self._range_end)
-
                 # Reset chunks counter
                 self._reset_on_data = True
 
