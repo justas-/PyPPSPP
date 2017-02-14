@@ -92,7 +92,7 @@ class Swarm(object):
             self._chunk_storage.Initialize(False)
 
             self._cont_consumer = ContentConsumer(self, args)
-            self._cont_consumer.allow_tune_in()
+            self._cont_consumer._content_len = 3330 # TODO: Get from tracker!
             self.StartChunkRequesting()
             self._cont_consumer.start_consuming()
 
@@ -567,6 +567,10 @@ class Swarm(object):
         report['run_args'] = vars(self._args)
         report['member_stats'] = self._member_stats
         report['rx_discarded'] = self._discarded_rx
+
+        if self.vod:
+            self._cont_consumer.stop_consuming()
+            report['content_consumer'] = self._cont_consumer.get_stats()
 
         if self.live and not self.live_src:
             self._cont_consumer.stop_consuming()

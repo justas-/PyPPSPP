@@ -270,6 +270,7 @@ class SwarmMember(object):
         if self._logger.isEnabledFor(logging.DEBUG):
             logging.DEBUG("FROM > {0} > HAVE: {1}".format(self._peer_num, msg_have))
 
+        # TODO: THIS NEEDS TO BE ADJUSTED FOR VOD
         if self._swarm.live and self.live_discard_wnd is not None:
             # Check for new max
             if msg_have.end_chunk > self._max_have_value:
@@ -287,7 +288,7 @@ class SwarmMember(object):
             self.set_have.add(i)
 
             # Special handling for live swarms
-            if self._swarm.live:
+            if self._swarm.live or self._swarm.vod:
                 if i in self._swarm.set_have:
                     # Do nothing if I have the advertised chunk
                     pass

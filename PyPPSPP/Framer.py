@@ -1,3 +1,5 @@
+import logging
+
 from struct import unpack
 
 class Framer(object):
@@ -49,6 +51,8 @@ class Framer(object):
             if self._data_len > 0 and len(self._data_buf) >= self._data_len:
                 # Build the package and continue
                 self._data_callback(self._data_buf[0:self._data_len])
+
+                logging.info('Frame recreated: %s:%s', self._range_start, self._range_end)
 
                 # Reset chunks counter
                 self._reset_on_data = True

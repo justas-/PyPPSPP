@@ -19,7 +19,7 @@ class ContentConsumer(object):
         self._framer = Framer(self.__data_framed, av_framer = True)
         self._q = queue.Queue()
         self._biggest_seen_chunk = 0    # Biggest chunk ID ever seen
-        self._next_frame = 1            # Next chunk that should go to framer
+        self._next_frame = 0            # Next chunk that should go to framer
         self._consume_thread = threading.Thread(target=self.thread_entry, name='cont_consume')
         self._stop_thread = False
         self._consumer_locked = False   # Is the consumer locked to the right position in the datastream
@@ -29,6 +29,7 @@ class ContentConsumer(object):
 
         self._last_showed = None        # Last chunk ID that was used to recreate showed frame
         self._last_showed_lock = threading.Lock()   # Lock to access the last showed id
+        self._content_len = None
 
         self._frames_consumed = 0       # Number of A/V frames shown
         self._frames_missed = 0         # Number of frames that was not there when needed
@@ -53,6 +54,7 @@ class ContentConsumer(object):
             # Keep beffering for some time
             self._buffer_start = time.time()
             while self._q.qsize() < self._video_buffer_sz and not self._stop_thread:
+                logging.info('Buffering. Q: %s', self._q.qsize())
                 time.sleep(0.25)
 
             # Set the start time
@@ -86,14 +88,12 @@ class ContentConsumer(object):
     def start_consuming(self):
         # Here we do not wait for q to fill, but we could if we wanted...
         if self._consume_thread.is_alive():
-            logging.error('Content consuming thread is already alive!')
             return
 
         self._consume_thread.start()
 
     def stop_consuming(self):
         if not self._consume_thread.is_alive():
-            logging.error('Content consuming thread is already stopped!')
             return
 
         self._stop_thread = True
@@ -120,7 +120,7 @@ class ContentConsumer(object):
 
     def data_received(self, chunk_id, data):
         # Track the biggest seen id
-        if chunk_id > self._biggest_seen_chunk:
+        if chunk_id >= self._biggest_seen_chunk:
             self._biggest_seen_chunk = chunk_id
         
         # Feed the framer as required
@@ -166,7 +166,7 @@ class ContentConsumer(object):
                     return
 
             # Track the biggest seen id
-            if chunk_id > self._biggest_seen_chunk:
+            if chunk_id >= self._biggest_seen_chunk:
                 self._biggest_seen_chunk = chunk_id
 
             # Feed the framer as required
@@ -221,6 +221,11 @@ class ContentConsumer(object):
                 logging.info("Got AV data! Seq: {}; Video size: {}; Audio size: {}; Valid: {}; Chunks: {}:{};"
                              .format(av_data['id'], len(av_data['vd']), len(av_data['ad']), av_data['in'], 
                                 chunk_start, chunk_end))
+
+            if self._content_len is not None and self._content_len == self._frames_consumed:
+                logging.info('End of content reached!')
+                self._stop_thread = True
+                
 
         except queue.Empty:
             # Do not count missed frames until the first frame is shown
