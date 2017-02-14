@@ -10,7 +10,7 @@ import Framer
 class PeerProtocolTCP(asyncio.Protocol):
     """TCP based communication protocol between the peers"""
 
-    def __init__(self, hive):
+    def __init__(self, hive, is_out = False):
         self._is_orphan = True
         self._transport = None
         self._hive = hive
@@ -21,13 +21,21 @@ class PeerProtocolTCP(asyncio.Protocol):
         self._throttle = False
         self._connection_id = hive._next_conn_id
         hive._next_conn_id += 1
+        
+        self._is_out = is_out
+
 
     def connection_made(self, transport):
         self._transport = transport
         self._ip, self._port = transport.get_extra_info('peername')
 
-        logging.info("New TCP connection ({}) from {}:{}"
-                     .format(self._connection_id, self._ip, self._port))
+        if self._is_out:
+            dir = 'OUT'
+        else:
+            dir = 'IN'
+
+        logging.info("New TCP {} connection ({}) from {}:{}"
+                     .format(dir, self._connection_id, self._ip, self._port))
 
         # Do we have any swarm waiting for this connection?
         list_waiting = self._hive.check_if_waiting(self._ip, self._port)
@@ -60,7 +68,7 @@ class PeerProtocolTCP(asyncio.Protocol):
             # Do we have any swarms that could accept this connection?
             if any(sw.any_free_peer_slots() for sw in self._hive._swarms.values()):
                 # Add to orpahn list
-                logging.info('Added connection () from {}:{} to the orphan connections list'
+                logging.info('Added connection ({}) from {}:{} to the orphan connections list'
                              .format(self._connection_id ,self._ip, self._port))
                 self._hive.add_orphan_connection(self)
             else:
@@ -182,7 +190,7 @@ class PeerProtocolTCP(asyncio.Protocol):
 
     def force_close_connection(self):
         """Close connection without any extra actions"""
-        logging.info('Force-closing connection () to: {}:{}'
+        logging.info('Force-closing connection ({}) to: {}:{}'
                      .format(self._connection_id, self._ip, self._port))
         self._hive.remove_orphan_connection(self)
         self._transport.close()
