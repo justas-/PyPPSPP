@@ -12,6 +12,7 @@ class Hive(object):
         self._swarms = {}
         self._orphan_connections = []
         self._pending_connection = {}
+        self._next_conn_id = 1
 
     def create_swarm(self, socket, args):
         """Initialize a new swarm in this node"""
@@ -54,7 +55,8 @@ class Hive(object):
         """Strat the outgoing connection and inform the given swarm once done"""
 
         swarm_id_str = binascii.hexlify(swarm_id).decode('ascii')
-        logging.info('Request for connection to: {}:{} for swarm: {}'.format(ip, port, swarm_id_str))
+        logging.info('Request for connection to: {}:{} for swarm: {}'
+                     .format(ip, port, swarm_id_str))
         
         # Check if swarm id is valid
         swarm = self.get_swarm(swarm_id_str)
@@ -75,7 +77,7 @@ class Hive(object):
         loop = asyncio.get_event_loop()
         connect_coro = loop.create_connection(lambda: PeerProtocolTCP(self), ip, port)
         loop.create_task(connect_coro)
-        logging.info('Connection coro to {}:{} created'.format(ip, port))
+        logging.info('Connection () coro to {}:{} created'.format(ip, port))
 
         # Add to a list of pending connectiosns
         if pending is None:
