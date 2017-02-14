@@ -30,6 +30,7 @@ class Framer(object):
             if self._reset_on_data:
                 self._range_start = None
                 self._range_end = None
+                self._reset_on_data = False
 
             # Track chunks
             if self._range_start is None:
