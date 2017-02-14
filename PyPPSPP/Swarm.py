@@ -237,7 +237,7 @@ class Swarm(object):
         if self.live_src and any_missing:
             raise AssertionError("Live Source and missing chunks!")
 
-        if not any_missing and not self.live:
+        if any(self.set_have) and not any_missing and not self.live:
             logging.info("All chunks onboard. Not rescheduling request algorithm")
             return
 
@@ -249,7 +249,10 @@ class Swarm(object):
             logging.error('Forward window set, but missing content consumer! Dlfwd will be turned off!')
             self.dlfwd = 0
         else:
-            max_permitted = self._cont_consumer.last_consumed() + self.dlfwd
+            last_showed = self._cont_consumer.last_showed_chunk()
+            if last_showed is None:
+                last_showed = 0
+            max_permitted = last_showed + self.dlfwd
 
         # Check all members for any missing pieces
         for member in self._members:
@@ -401,7 +404,10 @@ class Swarm(object):
         self.set_missing.discard(chunk_id)
         
         # Feed data to live video consumer if required
-        if self.live and not self.live_src:
+        if self.vod:
+            self._cont_consumer.data_received_with_de(chunk_id, data)
+
+        elif self.live and not self.live_src:
             #self._cont_consumer.data_received(chunk_id, data)
             self._cont_consumer.data_received_with_de(chunk_id, data)
 

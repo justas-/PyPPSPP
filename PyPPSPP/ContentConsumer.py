@@ -52,8 +52,8 @@ class ContentConsumer(object):
         try:
             # Keep beffering for some time
             self._buffer_start = time.time()
-            while self._q.qsize() < self._video_buffer_sz:
-                time.sleep(0.25) 
+            while self._q.qsize() < self._video_buffer_sz and not self._stop_thread:
+                time.sleep(0.25)
 
             # Set the start time
             self._start_time = time.time()
