@@ -21,6 +21,7 @@ class PeerProtocolTCP(asyncio.Protocol):
         self._throttle = False
         self._connection_id = hive._next_conn_id
         hive._next_conn_id += 1
+        self._is_closed = False                     # Prevent closing socket after indication that it is already closed
         
         self._is_out = is_out
 
@@ -99,6 +100,7 @@ class PeerProtocolTCP(asyncio.Protocol):
 
     def connection_lost(self, exc):
         logging.info("Connection () lost: {}".format(self._connection_id, exc))
+        self._is_closed = True
         self.remove_all_members()
 
     def pause_writing(self):
@@ -185,7 +187,7 @@ class PeerProtocolTCP(asyncio.Protocol):
             member._proto = None
             del self._members[member.local_channel]
 
-        if not any(self._members):
+        if not any(self._members) and not self._is_closed:
             self._transport.close()
 
     def force_close_connection(self):
@@ -193,4 +195,6 @@ class PeerProtocolTCP(asyncio.Protocol):
         logging.info('Force-closing connection ({}) to: {}:{}'
                      .format(self._connection_id, self._ip, self._port))
         self._hive.remove_orphan_connection(self)
-        self._transport.close()
+
+        if not self._is_closed:
+            self._transport.close()
