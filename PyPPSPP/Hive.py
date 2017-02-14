@@ -77,7 +77,7 @@ class Hive(object):
         loop = asyncio.get_event_loop()
         connect_coro = loop.create_connection(lambda: PeerProtocolTCP(self, True), ip, port)
         loop.create_task(connect_coro)
-        logging.info('Connection coro to {}:{} created'.format(ip, port))
+        logging.info('Connection () coro to {}:{} created'.format(ip, port))
 
         # Add to a list of pending connectiosns
         if pending is None:
