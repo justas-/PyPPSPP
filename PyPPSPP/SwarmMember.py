@@ -432,7 +432,7 @@ class SwarmMember(object):
         """Handle incomming REQUEST message"""
         for x in range(msg_request.start_chunk, msg_request.end_chunk + 1):
             # Ignore requests for discarded chunks
-            if x < self._swarm._last_discarded_id:
+            if x <= self._swarm._last_discarded_id:
                 continue
 
             self.set_requested.add(x)

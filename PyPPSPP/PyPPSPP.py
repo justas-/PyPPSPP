@@ -30,6 +30,7 @@ def main(args):
         DiscardWnd: {};
         Buffer Sz: {};
         Dl Fwd: {};
+        VOD: {};
     """.format(
             args.tracker, 
             args.filename, 
@@ -43,8 +44,13 @@ def main(args):
             args.skip,
             args.discardwnd,
             args.buffsz,
-            args.dlfwd
+            args.dlfwd,
+            args.vod
     ))
+
+    if args.vod and args.live:
+        logging.error('Client cannot be VOD and LIVE at the same time!')
+        return
 
     if 'workdir' in args and args.workdir is not None:
         logging.info('Changing work directory to: {}'.format(args.workdir))
@@ -168,13 +174,14 @@ if __name__ == "__main__":
     defaults['skip'] = False
     defaults['buffsz'] = 500
     defaults['dlfwd'] = 0
+    defaults['vod'] = False
 
     # Parse command line parameters
     parser = argparse.ArgumentParser(description="Python implementation of PPSPP protocol")
     parser.add_argument("--tracker", help="Tracker IP address", nargs='?', default=defaults['trackerip'])
-    parser.add_argument("--filename", help="Filename of the shared file", nargs=1, default=defaults['filename'])
-    parser.add_argument("--swarmid", help="Hash value of the swarm", nargs=1, default=defaults['swarmid'])
-    parser.add_argument("--filesize", help="Size of the file", nargs=1, type=int, default=defaults['filesize'])
+    parser.add_argument("--filename", help="Filename of the shared file", nargs='?', default=defaults['filename'])
+    parser.add_argument("--swarmid", help="Hash value of the swarm", nargs='?', default=defaults['swarmid'])
+    parser.add_argument("--filesize", help="Size of the file", nargs='?', type=int, default=defaults['filesize'])
     
     parser.add_argument("--live", help="Is this a live stream", action='store_true', default=defaults['live'])
     parser.add_argument("--livesrc", help="Is this a live stream source", action='store_true', default=defaults['live_src'])
@@ -191,6 +198,8 @@ if __name__ == "__main__":
     # chunks in 'front' of its' playback position. This parameter sets moving window
     # size, where reference point is last chunk fed into the video framer. 0 - No limit
     parser.add_argument('--dlfwd', help='Number of chunks to request after last played', nargs='?', type=int, default=defaults['dlfwd'])
+    # Indicate that this is VOD
+    parser.add_argument('--vod', help='This is Video-On-Demand CLIENT', action='store_true', default=defaults['vod'])
 
     # Start the program
     args = parser.parse_args()

@@ -32,6 +32,7 @@ class Swarm(object):
         self.swarm_id = binascii.unhexlify(args.swarmid)
         self.live = args.live
         self.live_src = args.livesrc
+        self.vod = args.vod
         if args.discardwnd is not None:
             self.discard_wnd = int(args.discardwnd)
         else:
@@ -63,7 +64,7 @@ class Swarm(object):
         self._have_ranges = []          # List of ranges of chunks we have verified
 
         self._data_chunks_rx = 0        # Number of data chunks received overall
-        self._last_discarded_id = 0     # Last discarded chunk id when used with live discard window
+        self._last_discarded_id = -1     # Last discarded chunk id when used with live discard window
 
         self._next_peer_num = 1
         self._max_peers = args.numpeers
@@ -85,7 +86,17 @@ class Swarm(object):
 
         self._member_stats = {}
 
-        if self.live:
+        if self.vod:
+            # Setup client for VOD role
+            self._chunk_storage = MemoryChunkStorage(self)
+            self._chunk_storage.Initialize(False)
+
+            self._cont_consumer = ContentConsumer(self, args)
+            self._cont_consumer.allow_tune_in()
+            self.StartChunkRequesting()
+            self._cont_consumer.start_consuming()
+
+        elif self.live:
             # Initialize in memory chunk storage
             self._chunk_storage = MemoryChunkStorage(self)
             self._chunk_storage.Initialize(self.live_src)
@@ -193,6 +204,12 @@ class Swarm(object):
             raise Exception
 
         # Schedule the execution of selection alg
+        if self.vod:
+            self._chunk_selction_handle = asyncio.get_event_loop().call_later(
+                1 / self._selection_rps, 
+                self.greedy_chunk_request)
+            return
+
         if self.live and not self.live_src:
             self._chunk_selction_handle = asyncio.get_event_loop().call_later(
                 1 / self._selection_rps, 
@@ -232,7 +249,7 @@ class Swarm(object):
             logging.error('Forward window set, but missing content consumer! Dlfwd will be turned off!')
             self.dlfwd = 0
         else:
-            max_permitted = last_consumed + self.dlfwd
+            max_permitted = self._cont_consumer.last_consumed() + self.dlfwd
 
         # Check all members for any missing pieces
         for member in self._members:
@@ -368,7 +385,7 @@ class Swarm(object):
         if not any(self.set_missing):
             return
 
-        if chunk_id < self._last_discarded_id:
+        if chunk_id <= self._last_discarded_id:
             self._discarded_rx += 1
             logging.info('Received chunk ({}) in discarded range'.format(chunk_id))
             return

@@ -25,7 +25,7 @@ class FakeSwarm(object):
         self.live = True
         self.live_src = True
         self._have_ranges = []
-        self._last_discarded_id = 0
+        self._last_discarded_id = -1
 
     def SendHaveToMembers(self):
         """Do nothing"""
@@ -39,6 +39,7 @@ def main(length, filename):
     swarm = FakeSwarm()
     storage = MemoryChunkStorage(swarm)
     generator = ContentGenerator()
+    mekle_hasher = MerkleHashTree('sha1', GlobalParams.chunk_size)
 
     fps = 10
     key = 0
@@ -59,32 +60,38 @@ def main(length, filename):
 
     storage_len = len(storage._chunks)
     logging.info('Total frames: %s Total chunks: %s',
-                 total_frames,
-                 storage_len
+                 total_frames, storage_len
     )
 
-    # Storage now has all data. Store it into file
-    with open(filename, 'wb') as file_hdl:
-        for key, val in storage._chunks.items():
-            file_hdl.write(val)
-            if key % 1000 == 0:
-                logging.info('Wrote chunk %s of %s', key, storage_len)
+    m = bytearray()
+    for cid in range(storage_len):
+        m.extend(storage.GetChunkData(cid))
+    mmh = mekle_hasher.get_data_hash(m)
+    logging.info('In Memory Merkle Root hash: %s', binascii.hexlify(mmh))
 
+    # Storage now has all data. Store it into file
+    num_writes = 0
+    with open(filename, 'wb') as file_hdl:
+        for chunk_id in range(storage_len):
+            data = storage.GetChunkData(chunk_id)
+            file_hdl.write(data)
+            num_writes += 1
+            if num_writes % 1000 == 0:
+                logging.info('Wrote chunk %s of %s', num_writes, storage_len)
 
     # Calculate Merkle Root Hash:
     logging.info('Calculating Merkle root hash')
-    mekle_hasher = MerkleHashTree('sha1', GlobalParams.chunk_size)
+
     mrh = mekle_hasher.get_file_hash(filename)
 
-    logging.info('Merkle Root hash: %s',
-                 binascii.hexlify(mrh)
-    )
+    logging.info('Merkle Root hash: %s', binascii.hexlify(mrh))
+    logging.info('Min %s, Max %s', min(swarm.set_have), max(swarm.set_have))
 
-    with open('{}.log'.format(filename), 'a') as log_hdl:
-        log_hdl.write('Filename: {}'.format(filename) + os.linesep)
-        log_hdl.write('Total frames: {}'.format(total_frames) + os.linesep)
-        log_hdl.write('Total chunks: {}'.format(storage_len) + os.linesep)
-        log_hdl.write('Merkle hash: {}'.format(binascii.hexlify(mrh)) + os.linesep)
+    with open('{}.log'.format(filename), 'w') as log_hdl:
+        log_hdl.write('Filename: {}\n'.format(filename))
+        log_hdl.write('Total frames: {}\n'.format(total_frames))
+        log_hdl.write('Total chunks: {}\n'.format(storage_len))
+        log_hdl.write('Merkle hash: {}\n'.format(binascii.hexlify(mrh)))
 
 if __name__ == '__main__':
     main(333, 'vod333.dat')

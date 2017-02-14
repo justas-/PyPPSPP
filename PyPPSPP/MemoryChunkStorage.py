@@ -19,7 +19,7 @@ class MemoryChunkStorage(AbstractChunkStorage):
         self._chunks = {}
         self._cg = None
         self._is_source = False
-        self._last_inject_id = 0
+        self._next_inject_id = 0
 
         self._num_chunks_received = 0   # Number of all chunks received
         self._num_unique_received = 0   # Number of unique chunks received
@@ -41,7 +41,7 @@ class MemoryChunkStorage(AbstractChunkStorage):
             return self._chunks[chunk_id]
         else:
             if not ignore_missing:
-                logging.info("Received request for missing chunk: {0}".format(chunk))
+                logging.info("Received request for missing chunk: {0}".format(chunk_id))
             return None
 
     def SaveChunkData(self, chunk_id, data):
@@ -218,15 +218,15 @@ class MemoryChunkStorage(AbstractChunkStorage):
             # Ensure the correct size of data before sending it into the system
             assert len(chunk) == GlobalParams.chunk_size
 
-            self._last_inject_id += 1
-            self._chunks[self._last_inject_id] = chunk
-            self._swarm.set_have.add(self._last_inject_id)
+            self._chunks[self._next_inject_id] = chunk
+            self._swarm.set_have.add(self._next_inject_id)
+            self._next_inject_id += 1
 
     def BuildHaveRangesLiveSrc(self):
         # Build have ranges in Live Source
         assert self._swarm.live and self._swarm.live_src
         self._swarm._have_ranges.clear()
-        self._swarm._have_ranges.append((self._swarm._last_discarded_id + 1, self._last_inject_id))
+        self._swarm._have_ranges.append((self._swarm._last_discarded_id + 1, self._next_inject_id - 1))
     
     def BuildHaveRanges(self):
         """Build HAVE ranges"""
@@ -273,10 +273,11 @@ class MemoryChunkStorage(AbstractChunkStorage):
         max_have = max(self._swarm.set_have)
 
         # Check if we have anything to discard?
-        if max_have - min_have > self._swarm.discard_wnd:
+        # Chunks start at 0!
+        if max_have - min_have + 1 > self._swarm.discard_wnd:
 
             # Discard all items below discard window
-            for chunk_id in range(min_have, max_have - self._swarm.discard_wnd + 1):
+            for chunk_id in range(min_have, max_have - self._swarm.discard_wnd + 2):
                 if chunk_id in self._swarm.set_have:
                     self._swarm.set_have.discard(chunk_id)
                     self._swarm.set_missing.discard(chunk_id)
@@ -284,4 +285,4 @@ class MemoryChunkStorage(AbstractChunkStorage):
                     del self._chunks[chunk_id]
 
             # Set last discarded ID
-            self._swarm._last_discarded_id = max_have - self._swarm.discard_wnd
+            self._swarm._last_discarded_id = max_have - self._swarm.discard_wnd + 1

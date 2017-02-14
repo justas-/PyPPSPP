@@ -27,6 +27,9 @@ class ContentConsumer(object):
         self._data_lock = threading.Lock()
         self._video_buffer_sz = args.buffsz     # How many chunks to download before starting playback
 
+        self._last_showed = None        # Last chunk ID that was used to recreate showed frame
+        self._last_showed_lock = threading.Lock()   # Lock to access the last showed id
+
         self._frames_consumed = 0       # Number of A/V frames shown
         self._frames_missed = 0         # Number of frames that was not there when needed
         self._start_time = 0            # When consumer started
@@ -37,9 +40,11 @@ class ContentConsumer(object):
         self._num_skipped = 0           # Number of data chunks skipped
 
 
-    def last_consumed(self):
+    def last_showed_chunk(self):
         """Return ID of the last consumed chunk ID"""
-        return self._next_frame - 1
+
+        with self._last_showed_lock:
+            return self._last_showed
 
     def thread_entry(self):
         """Entry point for consumption happening in the thread"""
@@ -120,7 +125,7 @@ class ContentConsumer(object):
         
         # Feed the framer as required
         if chunk_id == self._next_frame:
-            self._framer.DataReceived(data)
+            self._framer.DataReceived(data, chunk_id)
             self._next_frame += 1
 
         # If we have a gap - try to fill it
@@ -131,7 +136,7 @@ class ContentConsumer(object):
                     # We do not have next chunk yet
                     break
                 else:
-                    self._framer.DataReceived(chunk)
+                    self._framer.DataReceived(chunk, chunk_id)
                     self._next_frame += 1
 
     def data_received_with_de(self, chunk_id, chunk_data):
@@ -166,7 +171,7 @@ class ContentConsumer(object):
 
             # Feed the framer as required
             if chunk_id == self._next_frame:
-                self._framer.DataReceived(chunk_data[1:])
+                self._framer.DataReceived(chunk_data[1:], chunk_id)
                 self._next_frame += 1
 
             # If we have a gap - try to fill it
@@ -174,9 +179,17 @@ class ContentConsumer(object):
                 self.feed_q_until_max()
 
     def __data_framed(self, data):
+        """Callback from Framer/Deframer"""
+
+        # Get the chunks rnage that was used to create given data
+        chunks_range = self._framer.get_deframed_chunks_range()
+
+        if chunks_range is None:
+            logging.error('Got None when requesting chunks range from the framer!')
+
         # Called by framer when full A/V frame is ready
         av_data = pickle.loads(data)
-        self._q.put(av_data)
+        self._q.put((av_data, chunks_range))
 
     def __consume(self):
         """Consume the next frame as given by callback"""
@@ -186,7 +199,18 @@ class ContentConsumer(object):
 
         # Try to get data from the Queue
         try:
-            av_data = self._q.get(block = False)
+            (av_data, chunks_range) = self._q.get(block = False)
+
+            # Take note of the chunks range used to build this frame
+            if chunks_range is None:
+                chunk_start = None
+                chunk_end = None
+            else:
+                (chunk_start, chunk_end) = chunks_range
+
+            # Update the value accessible for the other threads
+            with self._last_showed_lock:
+                self._last_showed = chunk_end
 
             # Mark first frame time
             if self._first_frame_time == 0:
@@ -194,8 +218,9 @@ class ContentConsumer(object):
 
             self._frames_consumed += 1
             if self._frames_consumed % 50 == 0:
-                logging.info("Got AV data! Seq: {}; Video size: {}; Audio size: {}; Valid: {}"
-                         .format(av_data['id'], len(av_data['vd']), len(av_data['ad']), av_data['in']))
+                logging.info("Got AV data! Seq: {}; Video size: {}; Audio size: {}; Valid: {}; Chunks: {}:{};"
+                             .format(av_data['id'], len(av_data['vd']), len(av_data['ad']), av_data['in'], 
+                                chunk_start, chunk_end))
 
         except queue.Empty:
             # Do not count missed frames until the first frame is shown
@@ -214,7 +239,7 @@ class ContentConsumer(object):
                 # We do not have next chunk yet
                 break
             else:
-                self._framer.DataReceived(chunk[1:])
+                self._framer.DataReceived(chunk[1:], chunk_id)
                 self._next_frame += 1
 
     def _skip_frames(self):
