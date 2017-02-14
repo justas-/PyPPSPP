@@ -24,17 +24,19 @@ class Framer(object):
         # Save data to the buffer
         self._data_buf.extend(data)
 
-        # Reset if this is new range
-        if self._reset_on_data:
-            self._range_start = None
-            self._range_end = None
+        # Special parts for AV framers
+        if self._av_framer:
+            # Reset if this is new range
+            if self._reset_on_data:
+                self._range_start = None
+                self._range_end = None
 
-        # Track chunks
-        if self._range_start is None:
-            self._range_start = chunk_id
-            self._range_end = chunk_id
-        else:
-            self._range_end = chunk_id
+            # Track chunks
+            if self._range_start is None:
+                self._range_start = chunk_id
+                self._range_end = chunk_id
+            else:
+                self._range_end = chunk_id
 
         while True:
             # If we don't have packet length:
@@ -52,7 +54,8 @@ class Framer(object):
                 # Build the package and continue
                 self._data_callback(self._data_buf[0:self._data_len])
 
-                logging.info('Frame recreated: %s:%s', self._range_start, self._range_end)
+                if self._av_framer:
+                    logging.info('Deframed %s:%s', self._range_start, self._range_end)
 
                 # Reset chunks counter
                 self._reset_on_data = True
