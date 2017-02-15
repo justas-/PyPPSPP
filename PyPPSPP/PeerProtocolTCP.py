@@ -10,7 +10,7 @@ import Framer
 class PeerProtocolTCP(asyncio.Protocol):
     """TCP based communication protocol between the peers"""
 
-    def __init__(self, hive):
+    def __init__(self, hive, is_out = False):
         self._is_orphan = True
         self._transport = None
         self._hive = hive
@@ -19,12 +19,24 @@ class PeerProtocolTCP(asyncio.Protocol):
         self._ip = None
         self._port = None
         self._throttle = False
+        self._connection_id = hive._next_conn_id
+        hive._next_conn_id += 1
+        self._is_closed = False                     # Prevent closing socket after indication that it is already closed
+        
+        self._is_out = is_out
+
 
     def connection_made(self, transport):
         self._transport = transport
         self._ip, self._port = transport.get_extra_info('peername')
 
-        logging.info("New TCP connection from {}:{}".format(self._ip, self._port))
+        if self._is_out:
+            dir = 'OUT'
+        else:
+            dir = 'IN'
+
+        logging.info("New TCP {} connection ({}) from {}:{}"
+                     .format(dir, self._connection_id, self._ip, self._port))
 
         # Do we have any swarm waiting for this connection?
         list_waiting = self._hive.check_if_waiting(self._ip, self._port)
@@ -57,7 +69,8 @@ class PeerProtocolTCP(asyncio.Protocol):
             # Do we have any swarms that could accept this connection?
             if any(sw.any_free_peer_slots() for sw in self._hive._swarms.values()):
                 # Add to orpahn list
-                logging.info('Added connection from {}:{} to the orphan connections list'.format(self._ip, self._port))
+                logging.info('Added connection ({}) from {}:{} to the orphan connections list'
+                             .format(self._connection_id ,self._ip, self._port))
                 self._hive.add_orphan_connection(self)
             else:
                 # No swarm can accept this connection - drop it
@@ -73,7 +86,8 @@ class PeerProtocolTCP(asyncio.Protocol):
         try:
             self._transport.write(packet)
         except Exception as e:
-            logging.warn("Exception when sending: {}".format(e))
+            logging.warn("Conn: {} Exception when sending: {}"
+                         .format(self._connection_id, e))
             self.remove_all_members()
 
     def data_received(self, data):
@@ -85,7 +99,8 @@ class PeerProtocolTCP(asyncio.Protocol):
         return True
 
     def connection_lost(self, exc):
-        logging.info("Connection lost: {}".format(exc))
+        logging.info("Connection () lost: {}".format(self._connection_id, exc))
+        self._is_closed = True
         self.remove_all_members()
 
     def pause_writing(self):
@@ -139,14 +154,14 @@ class PeerProtocolTCP(asyncio.Protocol):
                 swarm._all_data_rx += len(data)
                 m = swarm.AddMember(self._ip, self._port, self)
                 if isinstance(m, str):
-                    # Error
+                    self.force_close_connection()
                     return
                 else:
                     m.ParseData(data)
 
     def register_member(self, member):
         """Link a member object to a connection"""
-        logging.info('Registering member: {}'.format(member))
+        logging.info('Registering member: {}; Conn: '.format(member, self._connection_id))
 
         if member.local_channel in self._members:
             logging.warn("Trying to register the same meber twice!")
@@ -172,11 +187,14 @@ class PeerProtocolTCP(asyncio.Protocol):
             member._proto = None
             del self._members[member.local_channel]
 
-        if not any(self._members):
+        if not any(self._members) and not self._is_closed:
             self._transport.close()
 
     def force_close_connection(self):
         """Close connection without any extra actions"""
-        logging.info('Force-closing connection to: {}:{}'.format(self._ip, self._port))
+        logging.info('Force-closing connection ({}) to: {}:{}'
+                     .format(self._connection_id, self._ip, self._port))
         self._hive.remove_orphan_connection(self)
-        self._transport.close()
+
+        if not self._is_closed:
+            self._transport.close()
