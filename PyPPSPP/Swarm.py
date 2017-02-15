@@ -15,6 +15,7 @@ from SwarmMember import SwarmMember
 from GlobalParams import GlobalParams
 from Messages import *
 from PeerProtocolTCP import PeerProtocolTCP
+from ALTOInterface import ALTOInterface
 
 from AbstractChunkStorage import AbstractChunkStorage
 from MemoryChunkStorage import MemoryChunkStorage
@@ -124,10 +125,24 @@ class Swarm(object):
 
         logging.info("Created Swarm with ID: {0}".format(args.swarmid))
 
+        self._alto = ALTOInterface('http://10.51.32.121:5000/alto', '10.51.32.121')
+        self._alto_period = asyncio.get_event_loop().call_later(15, self.alto_lookup)
+
         # Start printing stats
         self._periodic_stats_handle = asyncio.get_event_loop().call_later(
             self._periodic_stats_freq,
             self._print_periodic_stats)
+
+    def alto_lookup(self):
+        """Test alto lookup"""
+        logging.info('Making ALTO request')
+        loop = asyncio.get_event_loop()
+        task = loop.create_task(self._alto.do_alto_get(
+            '/networkmap', None, self.netmap_callback))
+
+    def netmap_callback(self, netmap):
+        """Callback for ALTO networkmap lookup"""
+        print(netmap.json())
 
     def SendData(self, ip_address, port, data):
         """Send data over a socket used by this swarm"""
