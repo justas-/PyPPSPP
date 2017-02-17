@@ -52,6 +52,10 @@ def main(args):
         logging.error('Client cannot be VOD and LIVE at the same time!')
         return
 
+    if args.alto and 'altocosttype' not in args:
+        logging.error('ALTO cost type must be provided if using ALTO')
+        return
+
     if 'workdir' in args and args.workdir is not None:
         logging.info('Changing work directory to: {}'.format(args.workdir))
         os.chdir(args.workdir)
@@ -64,8 +68,6 @@ def main(args):
     loop.set_debug(False)
 
     tracker = SimpleTracker()
-    if args.alto:
-        tracker.set_use_alto()
     tracker.set_hive(hive)
 
     # Create connection to the tracker node
@@ -191,6 +193,7 @@ if __name__ == "__main__":
     parser.add_argument("--tcp", help="Use TCP between the peers", action='store_true', default=defaults['tcp'])
     parser.add_argument('--discardwnd', help="Live discard window size", nargs='?', default=defaults['discard_window'])
     parser.add_argument('--alto', help="Use ALTO server to rank peers", nargs='?', type=bool, default=defaults['alto'])
+    parser.add_argument('--altocosttype', help='ALTO cost type', nargs='?')
     parser.add_argument('--workdir', help='Change the working direcotry', nargs='?')
     parser.add_argument('--skip', help='Allow skipping chunks when framer is stuck', action='store_true', default=defaults['skip'])
     parser.add_argument('--buffsz', help='Buffer size (chunks) in Content Consumer', nargs='?', type=int, default=defaults['buffsz'])

@@ -5,107 +5,96 @@ import logging
 import ipaddress
 import asyncio
 import functools
+import socket
 
 import requests
 
 class ALTOInterface(object):
     """Interface with ALTO server"""
 
-    def __init__(self, alto_url, self_ip):
+    @staticmethod
+    def get_my_ip():
+        """Get My IP address. This is an awful hack"""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.connect(('1.1.1.1', 0))
+        return sock.getsockname()[0]
+
+    def __init__(self, alto_url, self_ip=None):
         """Initialize the class"""
         self._alto_url = alto_url
-        self._self_ip = self_ip
+        if self_ip is None:
+            self._self_ip = ALTOInterface.get_my_ip()
+            logging.info('ALTO service detected self IP: %s', self._self_ip)
+        else:
+            self._self_ip = self_ip
+        self._loop = asyncio.get_event_loop()
 
-        self._network_map = None
-        self._cost_map = None
+    def rank_sources(self, sources, cost_metric, callback):
+        """Rank given sources to self_ip as destination using 
+        the given cost type. Return results to callback"""
+
+        # Build sources and destinations strings
+        str_src = ['ipv4:{}'.format(ip) for ip in sources]
+        str_dst = ['ipv4:{}'.format(self._self_ip)]
+
+        # Make JSON serializable object
+        req_obj = {
+            "cost-type":{
+                "cost-mode":"numerical",
+                "cost-metric":cost_metric
+            },
+            "endpoints":{
+                "srcs":str_src,
+                "dsts":str_dst
+            }
+        }
+
+        # Create task
+        task = self._loop.create_task(self._alto.do_alto_post(
+            '/endpointcost/lookup', req_obj, callback))
 
     @asyncio.coroutine
-    def do_alto_post(self, endpoint, data):
+    def do_alto_post(self, endpoint, data, callback):
         """ALTO post to the given endpoint with given data"""
 
-        loop = asyncio.get_event_loop()
+        # Make HTTP POST to ALTO
         url = self._alto_url + endpoint
         alto_resp_future = loop.run_in_executor(None, functools.partial(
-            requests.post, url, json = data))
-        alto_resp = yield from alto_resp_future
-        return alto_resp
-
-    @asyncio.coroutine
-    def do_alto_get(self, endpoint, data, callback):
-        """ALTO gert to the given endpoint with given data"""
-
-        loop = asyncio.get_event_loop()
-        url = self._alto_url + endpoint
-
-        # Execute request in the task executor
-        alto_resp_future = loop.run_in_executor(None, functools.partial(
-            requests.get, url, json = data))
+            requests.post, url, json=data))
         alto_resp = yield from alto_resp_future
 
-        # Deliver back the data
-        callback(alto_resp)
+        # Process peers
+        ranked_peers = self._process_alto_response(alto_resp)
 
-    @asyncio.coroutine    
-    def get_costs(self, source, destination):
-        """Get costs from [source] to [destination] IPs"""
+        # Return results to swarm
+        callback(ranked_peers)
 
-        yield from do_alto_post('/costs', {})
-        logging.info(alto_resp)
+    def _process_alto_response(self, alto_response):
+        """Process data returned from ALTO"""
 
-
-    def get_networkmap(self):
-        """Download the network map from the ALTO server"""
-        # Get data from ALTO
-        url = self._alto_url + "/networkmap"
-        resp_raw = requests.get(url)
-        response = resp_raw.json()
-
-        # Parse into Python objects
-        nm = {}
-        for pid_name, v in response['network-map'].items():
-            subnets = []
-            for subnet in v['ipv4']:
-                subnets.append(ipaddress.IPv4Network(subnet))
-            nm[pid_name] = subnets
-
-        # Set for use later
-        self._network_map = nm
-
-    def get_costmap(self):
-        """Download the cost map from the ALTO server"""
-        url = self._alto_url + "/costmap/numerical/routingcost"
-        resp_raw = requests.get(url)
-        response = resp_raw.json()
-        self._cost_map = response['cost-map']
-        
-    def get_cost_by_ip(self, from_ip, to_ip):
-        """Get routing cost by given IP addresses"""
-        # Convert from-IP to from-PID
-        pid_from = self.get_pid_by_ip(from_ip)
-        if pid_from is None:
+        if alto_response.status_code != requests.codes.ok:
+            logging.warn('ALTO response HTTP code: %s', alto_response.status_code)
             return None
 
-        # Convert to-IP to to-PID
-        pid_to = self.get_pid_by_ip(to_ip)
-        if pid_to is None:
+        data = alto_response.json()
+        if not any(data['endpoint-cost-map']):
+            logging.info('ALTO returned empty cost-map')
             return None
 
-        return self.get_cost_by_pid(pid_from, pid_to)
+        results = {}
+        for key, val in data['endpoint-cost-map']:
+            # Extract source IP
+            key_ip = key.strip('ipv4')
+            (dest_ip, cost) = val.popitem()
+            # Ensure that data is valid
+            if dest_ip != self._self_ip:
+                logging.warning('Costmap Destination not the same as our IP! %s != %s',
+                                dest_ip, self._self_ip)
+                continue
+            results[key_ip] = cost
 
-    def get_cost_by_pid(self, from_pid, to_pid):
-        """Get routing cost by given PIDs"""
-        if from_pid in self._cost_map:
-            from_branch = self._cost_map[from_pid]
-            if to_pid in from_branch:
-                return from_branch[to_pid]
-        
-        return None
-
-    def get_pid_by_ip(self, ip):
-        """Get PID by given IP address""" # ipnet.network_address._ip == ipadr._ip & ipnet.netmask._ip
-        ip_addr = ipaddress.IPv4Address(ip)
-        for pid_name, net_list in self._network_map.items():
-            for net in net_list:
-                if net.network_address._ip == ip_addr._ip & net.netmask._ip:
-                    return pid_name
-        return None
+        # Return results if any
+        if not any(results):
+            return None
+        else:
+            return results
