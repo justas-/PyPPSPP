@@ -10,6 +10,7 @@ import socket
 import time
 import json
 import binascii
+import operator
 
 from SwarmMember import SwarmMember
 from GlobalParams import GlobalParams
@@ -43,6 +44,19 @@ class Swarm(object):
             self.dlfwd = args.dlfwd
         else:
             self.dlfwd = 0
+
+        # setup for ALTO
+        self._use_alto = False
+        self._alto_cost_type = None
+        self._alto = None
+        self._alto_period = 0
+        self._alto_event = None
+        self._alto_members = None
+
+        if args.alto:
+            self._use_alto = True
+            self._alto_cost_type = args.altocosttype
+            self._alto_period = 15
 
         self._socket = socket
         self._members = []
@@ -125,8 +139,11 @@ class Swarm(object):
 
         logging.info("Created Swarm with ID: {0}".format(args.swarmid))
 
-        self._alto = ALTOInterface('http://10.51.32.121:5000/alto', '10.51.32.121')
-        self._alto_period = asyncio.get_event_loop().call_later(15, self.alto_lookup)
+        # Start periodic ALTO requests
+        if self._use_alto:
+            self._alto = ALTOInterface('http://10.51.32.121:5000/alto')
+            self._alto_event = asyncio.get_event_loop().call_later(
+                self._alto_period, self.alto_lookup)
 
         # Start printing stats
         self._periodic_stats_handle = asyncio.get_event_loop().call_later(
@@ -134,15 +151,36 @@ class Swarm(object):
             self._print_periodic_stats)
 
     def alto_lookup(self):
-        """Test alto lookup"""
-        logging.info('Making ALTO request')
-        loop = asyncio.get_event_loop()
-        task = loop.create_task(self._alto.do_alto_get(
-            '/networkmap', None, self.netmap_callback))
+        """Request ranking using given cost provider"""
+        member_ips = [member.ip_address for member in self._members]
+        self._alto.rank_sources(
+            member_ips, self._alto_cost_type, self.alto_callback)
 
-    def netmap_callback(self, netmap):
-        """Callback for ALTO networkmap lookup"""
-        print(netmap.json())
+    def alto_callback(self, cost_map):
+        """Callback for ALTO lookup"""
+
+        # Print debug information
+        logging.info('Got cost-map from ALTO: %s', cost_map)
+
+        # Build a list using ALTO returned keys and the rest at the end
+        ips_min_to_max = sorted(cost_map.items(), key=operator.itemgetter(1))
+        sorted_members = []
+        members_copy = self._members.copy()
+
+        # Add members by the cost
+        for (ip, cost) in ips_min_to_max:
+            member = next((m for m in members_copy if m.ip_address == ip), None)
+            if member is None:
+                continue
+            else:
+                sorted_members.append(member)
+                members_copy.remove(member)
+
+        # Add the remaining members
+        sorted_members.extend(members_copy)
+
+        # Update the parameter
+        self._alto_members = sorted_members
 
     def SendData(self, ip_address, port, data):
         """Send data over a socket used by this swarm"""
@@ -270,7 +308,17 @@ class Swarm(object):
             max_permitted = last_showed + self.dlfwd
 
         # Check all members for any missing pieces
-        for member in self._members:
+        if self._use_alto and self._alto_members is not None:
+            # During startup ALTO member list might be smaller, so
+            # use normal members list
+            if len(self._alto_members) >= len(self._members) - 3:
+                members_list = self._alto_members
+            else:
+                members_list = self._members
+        else:
+            members_list = self._members
+
+        for member in members_list:
             # Build missing chunks
             req_chunks_no_filter = member.set_have - self.set_have - all_req_local
             
@@ -553,6 +601,15 @@ class Swarm(object):
     def close_swarm(self):
         """Close the swarm and send disconnect to all members"""
         logging.info("Request to close swarm nicely!")
+
+        # Cancel events
+        if self._alto_event is not None:
+            self._alto_event.cancel()
+            self._alto_event = None
+
+        if self._periodic_stats_handle is not None:
+            self._periodic_stats_handle.cancel()
+            self._periodic_stats_handle = None
 
         # Send departure handshakes
         for member in self._members:
