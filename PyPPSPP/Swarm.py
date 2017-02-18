@@ -197,6 +197,15 @@ class Swarm(object):
         self._socket.sendto(data, (ip_address, port))
         self._all_data_tx += len(data)
 
+    def any_valid_members_at(self, ip_address):
+        """Return True if swarm has any init members at given IP"""
+        
+        for member in self._members:
+            if member.is_init and member.ip_address == ip_address:
+                return True
+        
+        return False
+
     def any_free_peer_slots(self):
         """Check if the swarm can accept any peers"""
         if self._max_peers is None or len(self._members) < self._max_peers:

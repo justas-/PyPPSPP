@@ -252,17 +252,31 @@ class SwarmMember(object):
             elif self.is_hs_sent == True:
                 # This is reply to our HS
                 # TODO: Catch the exception here and let the peer object die...
+                if self._is_udp:
+                    logging.info('Received reply %s Peer: %s:%s',
+                                 msg_handshake, self.ip_address, self.udp_port)
+                else:
+                    logging.info('Received reply %s Peer: %s:%s Conn: %s',
+                                 msg_handshake, self.ip_address, self.udp_port, 
+                                 self._proto.connection_id)
+
                 self.SetPeerParameters(msg_handshake)
                 self.is_init = True
-                logging.info("Received reply HANDSHAKE and initialized the channel")
 
             elif self.is_hs_sent == False:
                 # This is remote peer initiating connection to us
                 # TODO: Catch the exception here and let the peer object die...
+                if self._is_udp:
+                    logging.info('Received init %s Peer: %s:%s',
+                                 msg_handshake, self.ip_address, self.udp_port)
+                else:
+                    logging.info('Received init %s Peer: %s:%s Conn: %s',
+                                 msg_handshake, self.ip_address, self.udp_port, 
+                                 self._proto.connection_id)
+
                 self.SetPeerParameters(msg_handshake)
                 self.SendReplyHandshake()
                 self.is_init = True
-                logging.info("Received init HANDSHAKE. Replied and initialzed the channel")
 
     def HandleHave(self, msg_have):
         """Update the local have map"""
