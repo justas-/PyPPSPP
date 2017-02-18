@@ -50,7 +50,7 @@ class ALTOInterface(object):
         }
 
         # Create task
-        task = self._loop.create_task(self._alto.do_alto_post(
+        task = self._loop.create_task(self.do_alto_post(
             '/endpointcost/lookup', req_obj, callback))
 
     @asyncio.coroutine
@@ -60,11 +60,11 @@ class ALTOInterface(object):
         # Make HTTP POST to ALTO
         url = self._alto_url + endpoint
         try:
-            alto_resp_future = loop.run_in_executor(None, functools.partial(
+            alto_resp_future = self._loop.run_in_executor(None, functools.partial(
                 requests.post, url, json=data))
             alto_resp = yield from alto_resp_future
         except OSError as exc:
-            logging.info('Consumer OSErrro while connecting to ALTO server')
+            logging.info('Consumed OSError while connecting to ALTO server')
             return
 
         # Process peers
@@ -85,12 +85,15 @@ class ALTOInterface(object):
             logging.info('ALTO returned empty cost-map')
             return None
 
+        logging.info('ALTO returned COST map: %s', data['endpoint-cost-map'])
+
         results = {}
-        for key, val in data['endpoint-cost-map']:
+        for key, val in data['endpoint-cost-map'].items():
             # Extract source IP
-            key_ip = key.strip('ipv4')
+            key_ip = key.lstrip('ipv4:')
             (dest_ip, cost) = val.popitem()
             # Ensure that data is valid
+            dest_ip = dest_ip.lstrip('ipv4:')
             if dest_ip != self._self_ip:
                 logging.warning('Costmap Destination not the same as our IP! %s != %s',
                                 dest_ip, self._self_ip)
@@ -101,4 +104,5 @@ class ALTOInterface(object):
         if not any(results):
             return None
         else:
+            logging.info('Parsed cost map: %s', results)
             return results

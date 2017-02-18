@@ -244,7 +244,7 @@ class ContentConsumer(object):
                 # We do not have next chunk yet
                 break
             else:
-                self._framer.DataReceived(chunk[1:], chunk_id)
+                self._framer.DataReceived(chunk[1:], self._next_frame)
                 self._next_frame += 1
 
     def _skip_frames(self):
