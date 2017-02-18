@@ -6,13 +6,19 @@ import ALTOInterface
 
 class SimpleTracker(object):
     """This class abstracts a simple tracket. It can later be replaced with PPSP-TP"""
+    @staticmethod
+    def get_my_ip():
+        """Get My IP address. This is an awful hack"""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.connect(('1.1.1.1', 0))
+        return sock.getsockname()[0]
 
     def __init__(self):
         self._tracekr_protocol = None
-        self._myip = self._get_my_ip()
         self._hive = None
         self._use_alto = False
         self._alto = None
+        self._myip = SimpleTracker.get_my_ip()
 
     def set_hive(self, hive):
         """Link tracker to the hive"""

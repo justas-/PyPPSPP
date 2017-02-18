@@ -60,6 +60,10 @@ def main(args):
         logging.error('ALTO server IP not provided')
         return
 
+    if args.alto:
+        logging.info('ALTO Server: %s ALTO cost type: %s',
+                     args.altoserver, args.altocosttype)
+
     if 'workdir' in args and args.workdir is not None:
         logging.info('Changing work directory to: {}'.format(args.workdir))
         os.chdir(args.workdir)

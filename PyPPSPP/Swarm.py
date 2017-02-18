@@ -158,12 +158,19 @@ class Swarm(object):
         member_ips = [member.ip_address for member in self._members]
         self._alto.rank_sources(
             member_ips, self._alto_cost_type, self.alto_callback)
+        self._alto_event = asyncio.get_event_loop().call_later(
+            self._alto_period, self.alto_lookup)
 
     def alto_callback(self, cost_map):
         """Callback for ALTO lookup"""
 
         # Print debug information
         logging.info('Got cost-map from ALTO: %s', cost_map)
+
+        # Do not use stale ALTO data
+        if cost_map is None:
+            self._alto_members = None
+            return
 
         # Build a list using ALTO returned keys and the rest at the end
         ips_min_to_max = sorted(cost_map.items(), key=operator.itemgetter(1))
@@ -315,6 +322,7 @@ class Swarm(object):
             # During startup ALTO member list might be smaller, so
             # use normal members list
             if len(self._alto_members) >= len(self._members) - 3:
+                logging.info('Using ALTO sorted members list')
                 members_list = self._alto_members
             else:
                 members_list = self._members
