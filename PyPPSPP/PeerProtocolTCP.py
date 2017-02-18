@@ -25,6 +25,10 @@ class PeerProtocolTCP(asyncio.Protocol):
         
         self._is_out = is_out
 
+    @property
+    def connection_id(self):
+        """Return connection ID"""
+        return self._connection_id
 
     def connection_made(self, transport):
         self._transport = transport
@@ -49,8 +53,15 @@ class PeerProtocolTCP(asyncio.Protocol):
             for swarm_id in list_waiting:
                 logging.info('Found swarm {} waiting for the connection'.format(swarm_id))
                 swarm = self._hive.get_swarm(swarm_id)
+
+                if swarm.any_valid_members_at(self._ip):
+                    logging.info('Swarm %s already has init member to %s', swarm_id, self._ip)
+                    swarms_failed.append(swarm_id)
+                    continue
+
                 m = swarm.AddMember(self._ip, self._port, self)
                 if isinstance(m, str):
+                    logging.info('Swarm %s failed to add member: %s', swarm_id, m)
                     swarms_failed.append(swarm_id)
                 else:
                     m.SendHandshake()
@@ -161,7 +172,7 @@ class PeerProtocolTCP(asyncio.Protocol):
 
     def register_member(self, member):
         """Link a member object to a connection"""
-        logging.info('Registering member: {}; Conn: '.format(member, self._connection_id))
+        logging.info('Registering member: %s; Conn: %s', member, self._connection_id)
 
         if member.local_channel in self._members:
             logging.warn("Trying to register the same meber twice!")
