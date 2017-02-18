@@ -86,6 +86,10 @@ class SwarmMember(object):
         # Outbox to stuff all reply messages into one datagram
         self._outbox = deque()
 
+        # Member cleanup
+        self._cleanup_hdl = asyncio.get_event_loop().call_later(
+            15.0, self._clean_uninit_member)
+
         # Chunk sending
         self._chunk_sending_alg =  None
         if self._swarm.live:
@@ -98,6 +102,16 @@ class SwarmMember(object):
                 self._chunk_sending_alg = TCPFullSendRequestedChunks(self._swarm, self)
         self._sending_handle = None
         self._ledbat = LEDBAT()
+
+    def _clean_uninit_member(self):
+        """Remove member if not init after timeout"""
+        if self.is_init:
+            logging.warn('Member %s INIT but cleanup not canceled!', self)
+            return
+
+        logging.info('Destroying uninit member! %s', self)
+        self.destroy()
+        self._swarm.RemoveMember(self)
 
     def SendHandshake(self):
         """Send initial packet to the potential remote peer"""
@@ -262,6 +276,9 @@ class SwarmMember(object):
 
                 self.SetPeerParameters(msg_handshake)
                 self.is_init = True
+                if self._cleanup_hdl is not None:
+                    self._cleanup_hdl.cancel()
+                    self._cleanup_hdl = None
 
             elif self.is_hs_sent == False:
                 # This is remote peer initiating connection to us
@@ -277,6 +294,9 @@ class SwarmMember(object):
                 self.SetPeerParameters(msg_handshake)
                 self.SendReplyHandshake()
                 self.is_init = True
+                if self._cleanup_hdl is not None:
+                    self._cleanup_hdl.cancel()
+                    self._cleanup_hdl = None
 
     def HandleHave(self, msg_have):
         """Update the local have map"""

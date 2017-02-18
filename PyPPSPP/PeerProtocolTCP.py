@@ -39,7 +39,7 @@ class PeerProtocolTCP(asyncio.Protocol):
         else:
             dir = 'IN'
 
-        logging.info("New TCP {} connection ({}) from {}:{}"
+        logging.info("New TCP {} connection ({}) peer {}:{}"
                      .format(dir, self._connection_id, self._ip, self._port))
 
         # Do we have any swarm waiting for this connection?
@@ -78,15 +78,16 @@ class PeerProtocolTCP(asyncio.Protocol):
 
         else:
             # Do we have any swarms that could accept this connection?
-            if any(sw.any_free_peer_slots() for sw in self._hive._swarms.values()):
-                # Add to orpahn list
-                logging.info('Added connection ({}) from {}:{} to the orphan connections list'
-                             .format(self._connection_id ,self._ip, self._port))
-                self._hive.add_orphan_connection(self)
-            else:
-                # No swarm can accept this connection - drop it
-                logging.info('No free slots in any of the swarms')
-                self.force_close_connection()
+            #if any(sw.any_free_peer_slots() for sw in self._hive._swarms.values()):
+            #    # Add to orpahn list
+            #    logging.info('Added connection ({}) from {}:{} to the orphan connections list'
+            #                 .format(self._connection_id ,self._ip, self._port))
+            logging.info('Added connection %s to orphan list', self._connection_id)
+            self._hive.add_orphan_connection(self)
+            #else:
+            #    # No swarm can accept this connection - drop it
+            #    logging.info('No free slots in any of the swarms')
+            #    self.force_close_connection()
             
     def send_data(self, data):
         """Wrap data in framer's header and send it"""
@@ -106,11 +107,12 @@ class PeerProtocolTCP(asyncio.Protocol):
         self._framer.DataReceived(data)
 
     def eof_received(self):
+        logging.info('Connection: %s EOF received', self._connection_id)
         self.remove_all_members()
         return True
 
     def connection_lost(self, exc):
-        logging.info("Connection () lost: {}".format(self._connection_id, exc))
+        logging.info("Connection %s lost: %s", self._connection_id, exc)
         self._is_closed = True
         self.remove_all_members()
 
@@ -175,7 +177,7 @@ class PeerProtocolTCP(asyncio.Protocol):
         logging.info('Registering member: %s; Conn: %s', member, self._connection_id)
 
         if member.local_channel in self._members:
-            logging.warn("Trying to register the same meber twice!")
+            logging.warning("Trying to register the same meber twice!")
             return
         else:
             self._members[member.local_channel] = member
@@ -184,6 +186,7 @@ class PeerProtocolTCP(asyncio.Protocol):
     def remove_all_members(self):
         """Unlink this proto from all members and remove all members from swarms"""
 
+        logging.info('Removing all members for connection %s', self._connection_id)
         members_copy = self._members.copy()
         for member in members_copy.values():
             # Destroy the member and don't send disconnect because socket is gone
@@ -194,6 +197,9 @@ class PeerProtocolTCP(asyncio.Protocol):
 
     def remove_member(self, member):
         """Remove given member from a list of linked members"""
+        logging.info('Request to remove member %s from connection %s:%s (%s)',
+                     member, self._ip, self._port, self._connection_id)
+
         if member.local_channel in self._members:
             member._proto = None
             del self._members[member.local_channel]
