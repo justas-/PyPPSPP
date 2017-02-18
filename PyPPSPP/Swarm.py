@@ -52,11 +52,13 @@ class Swarm(object):
         self._alto_period = 0
         self._alto_event = None
         self._alto_members = None
+        self._alto_addr = None
 
         if args.alto:
             self._use_alto = True
             self._alto_cost_type = args.altocosttype
             self._alto_period = 15
+            self._alto_addr = args.altoserver
 
         self._socket = socket
         self._members = []
@@ -141,7 +143,8 @@ class Swarm(object):
 
         # Start periodic ALTO requests
         if self._use_alto:
-            self._alto = ALTOInterface('http://10.51.32.121:5000/alto')
+            logging.info('Initializing ALTO interface to server %s', self._alto_addr)
+            self._alto = ALTOInterface(self._alto_addr)
             self._alto_event = asyncio.get_event_loop().call_later(
                 self._alto_period, self.alto_lookup)
 

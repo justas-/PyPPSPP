@@ -59,9 +59,13 @@ class ALTOInterface(object):
 
         # Make HTTP POST to ALTO
         url = self._alto_url + endpoint
-        alto_resp_future = loop.run_in_executor(None, functools.partial(
-            requests.post, url, json=data))
-        alto_resp = yield from alto_resp_future
+        try:
+            alto_resp_future = loop.run_in_executor(None, functools.partial(
+                requests.post, url, json=data))
+            alto_resp = yield from alto_resp_future
+        except OSError as exc:
+            logging.info('Consumer OSErrro while connecting to ALTO server')
+            return
 
         # Process peers
         ranked_peers = self._process_alto_response(alto_resp)
