@@ -173,7 +173,11 @@ class Swarm(object):
             return
 
         # Build a list using ALTO returned keys and the rest at the end
-        ips_min_to_max = sorted(cost_map.items(), key=operator.itemgetter(1))
+        if self._alto_cost_type == 'residual-pathbandwidth':
+            ips_min_to_max = sorted(cost_map.items(), key=operator.itemgetter(1), reverse=True)
+        else:
+            ips_min_to_max = sorted(cost_map.items(), key=operator.itemgetter(1))
+
         sorted_members = []
         members_copy = self._members.copy()
 
