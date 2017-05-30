@@ -31,18 +31,25 @@ class PeerProtocolTCP(asyncio.Protocol):
         return self._connection_id
 
     def connection_made(self, transport):
+        """Callback on connection establishment"""
         self._transport = transport
         self._ip, self._port = transport.get_extra_info('peername')
 
+        # Do the logging
         if self._is_out:
-            dir = 'OUT'
+            str_dir = 'OUTGOING'
         else:
-            dir = 'IN'
+            str_dir = 'INCOMING'
+        logging.info('Established %s TCP connection (%s) with %s:%s',
+                     str_dir, self._connection_id, self._ip, self._port)
+        
+        # If connection is incoming - place in the orphan list
+        if not self._is_out:
+            logging.info('Added connection %s to orphan list', self._connection_id)
+            self._hive.add_orphan_connection(self)
+            return
 
-        logging.info("New TCP {} connection ({}) peer {}:{}"
-                     .format(dir, self._connection_id, self._ip, self._port))
-
-        # Do we have any swarm waiting for this connection?
+        # Notify all waiting swarms about new outgoing connection
         list_waiting = self._hive.check_if_waiting(self._ip, self._port)
         if list_waiting is not None:
             
@@ -51,14 +58,9 @@ class PeerProtocolTCP(asyncio.Protocol):
             swarms_failed = []
 
             for swarm_id in list_waiting:
+                
                 logging.info('Found swarm {} waiting for the connection'.format(swarm_id))
                 swarm = self._hive.get_swarm(swarm_id)
-
-                if swarm.any_valid_members_at(self._ip):
-                    logging.info('Swarm %s already has init member to %s', swarm_id, self._ip)
-                    swarms_failed.append(swarm_id)
-                    continue
-
                 m = swarm.AddMember(self._ip, self._port, self)
                 if isinstance(m, str):
                     logging.info('Swarm %s failed to add member: %s', swarm_id, m)
@@ -75,19 +77,11 @@ class PeerProtocolTCP(asyncio.Protocol):
             # If no swarms added this as a member - disconnect connection
             if not any_added:
                 self.force_close_connection()
-
         else:
-            # Do we have any swarms that could accept this connection?
-            #if any(sw.any_free_peer_slots() for sw in self._hive._swarms.values()):
-            #    # Add to orpahn list
-            #    logging.info('Added connection ({}) from {}:{} to the orphan connections list'
-            #                 .format(self._connection_id ,self._ip, self._port))
-            logging.info('Added connection %s to orphan list', self._connection_id)
-            self._hive.add_orphan_connection(self)
-            #else:
-            #    # No swarm can accept this connection - drop it
-            #    logging.info('No free slots in any of the swarms')
-            #    self.force_close_connection()
+            # Nobody is waiting for this connection
+            self._hive.remove_orphan_connection(self)
+            self._is_closed = True
+            self._transport.close()
             
     def send_data(self, data):
         """Wrap data in framer's header and send it"""
@@ -114,6 +108,11 @@ class PeerProtocolTCP(asyncio.Protocol):
     def connection_lost(self, exc):
         logging.info("Connection %s lost: %s", self._connection_id, exc)
         self._is_closed = True
+
+        # If exc is None - we closed it ourselves
+        if exc is None:
+            return
+
         self.remove_all_members()
 
     def pause_writing(self):

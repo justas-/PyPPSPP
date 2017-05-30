@@ -1,6 +1,7 @@
 import time
 import asyncio
 import struct
+import logging
 
 from AbstractSendRequestedChunks import AbstractSendRequestedChunks
 from Messages import *
@@ -19,6 +20,8 @@ class TCPFullSendRequestedChunks(AbstractSendRequestedChunks):
             chunk_to_send = min(set_to_send)
        
             data = self._swarm.GetChunkData(chunk_to_send)
+            if data is None:
+                logging.warning('TCPFullSendRequestedChunks::SendAndSchedule(): data is None! Consider other alg!')
         
             md = MsgData.MsgData(self._member.chunk_size, self._member.chunk_addressing_method)
             md.start_chunk = chunk_to_send
