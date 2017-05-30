@@ -22,7 +22,7 @@ from LEDBAT import LEDBAT
 class SwarmMember(object):
     """A class used to represent member in the swarm"""
 
-    def __init__(self, swarm, ip_address, udp_port = 6778, proto = None):
+    def __init__(self, swarm, ip_address, udp_port = 6778, proto = None, peer_num = None):
         """Init object representing the remote peer"""
         # Logger for fast access
         self._logger = logging.getLogger()
@@ -34,13 +34,14 @@ class SwarmMember(object):
         self._is_udp = True
         if proto is not None:
             self._is_udp = False
+        self.uuid = None
 
         # Channels for multiplexing
         self.local_channel = 0
         self.remote_channel = 0
 
         # Peer number for easy ID
-        self._peer_num = None
+        self._peer_num = peer_num
 
         # Chunk parameters and hash parameters
         # Will be overwritten by Handshake msg
@@ -119,6 +120,8 @@ class SwarmMember(object):
         # Create a handshake message
         hs = MsgHandshake.MsgHandshake()
         hs.swarm = self._swarm.swarm_id
+        hs.uuid = self._swarm._uuid
+
         if self._swarm.discard_wnd is not None:
             hs.live_discard_window = self._swarm.discard_wnd
         bm = hs.BuildBinaryMessage()
@@ -155,6 +158,8 @@ class SwarmMember(object):
 
         hs = MsgHandshake.MsgHandshake()
         hs.swarm = self._swarm.swarm_id
+        hs.uuid = self._swarm._uuid
+
         if self._swarm.discard_wnd is not None:
             hs.live_discard_window = self._swarm.discard_wnd
         bm = hs.BuildBinaryMessage()
@@ -195,8 +200,12 @@ class SwarmMember(object):
         if self._is_udp:
             self._swarm.SendData(self.ip_address, self.udp_port, binary_data)
         else:
-            self._proto.send_data(binary_data)
-            self._swarm._all_data_tx += datalen
+            # Prevent crashes when TCP connection is already removed, but some sending is still pending
+            if self._proto is not None:
+                self._proto.send_data(binary_data)
+                self._swarm._all_data_tx += datalen
+            else:
+                return  # No need to increase sent data counter...
 
         self._total_data_tx += datalen
         
@@ -287,9 +296,9 @@ class SwarmMember(object):
                     logging.info('Received init %s Peer: %s:%s',
                                  msg_handshake, self.ip_address, self.udp_port)
                 else:
-                    logging.info('Received init %s Peer: %s:%s Conn: %s',
+                    logging.info('Received init %s Peer: %s:%s Conn: %s Peer UUID: %s',
                                  msg_handshake, self.ip_address, self.udp_port, 
-                                 self._proto.connection_id)
+                                 self._proto.connection_id, msg_handshake.uuid)
 
                 self.SetPeerParameters(msg_handshake)
                 self.SendReplyHandshake()
@@ -484,6 +493,8 @@ class SwarmMember(object):
     def SetPeerParameters(self, msg_handshake):
         """Set Peer parameters as received in the HS message"""
 
+        self.uuid = msg_handshake.uuid
+
         self.remote_channel = msg_handshake.their_channel
         self.hash_type = msg_handshake.merkle_tree_hash_func
                 
@@ -540,8 +551,8 @@ class SwarmMember(object):
         if send_disconnect:
             self.send_goodbye()
 
-            if not self._is_udp:
-                self._proto.remove_member(self)
+        if not self._is_udp:
+            self._proto.remove_member(self)
 
         # Save the stats
         self._save_stats()

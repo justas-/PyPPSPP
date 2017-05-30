@@ -11,6 +11,7 @@ import time
 import json
 import binascii
 import operator
+import uuid
 
 from SwarmMember import SwarmMember
 from GlobalParams import GlobalParams
@@ -44,6 +45,8 @@ class Swarm(object):
             self.dlfwd = args.dlfwd
         else:
             self.dlfwd = 0
+
+        self._uuid = uuid.uuid4()
 
         # setup for ALTO
         self._use_alto = False
@@ -218,6 +221,9 @@ class Swarm(object):
     def AddMember(self, ip_address, port = 6778, proto = None):
         """Add a member to a swarm and try to initialize connection"""
         
+        logging.info('Swarm::AddMember Request: IP: %s; Port: %s; Proto present: %s',
+                     ip_address, port, bool(proto))
+
         # Check if the swarm is full
         if self._max_peers is not None and len(self._members) >= self._max_peers:
             logging.info("Swarm: Max number of peers reached (Skipping: {0}:{1})".format(ip_address, port))
@@ -236,15 +242,13 @@ class Swarm(object):
                 logging.info('Member at {0} is already present and will be ignorred'.format(ip_address))
                 return 'E_DUP_TCP'
 
-        logging.info("Swarm: Adding member at {0}:{1}".format(ip_address, port))
-
-        m = SwarmMember(self, ip_address, port, proto)
-        self._members.append(m)
-
-        m._peer_num = self._next_peer_num
+        new_member = SwarmMember(self, ip_address, port, proto, self._next_peer_num)
         self._next_peer_num += 1
+        self._members.append(new_member)
 
-        return m
+        logging.info('Swarm::AddMember: Created member: %s', new_member)
+
+        return new_member
 
     def GetMemberByChannel(self, channel):
         """Get a member in a swarm with the given channel ID"""
