@@ -282,7 +282,7 @@ class SwarmMember(object):
                 self.SetPeerParameters(msg_handshake)
 
                 # Check if we already have a peer with the same UUID
-                other_member = self._swarm.get_member_by_uuid(msg_handshake.uuid)
+                other_member = self._swarm.get_member_by_uuid(self, msg_handshake.uuid)
                 if other_member is not None:
                     if other_member.uuid > self._swarm._uuid:
                         # Other member was initiating and has higher uuid - keep it
@@ -312,7 +312,7 @@ class SwarmMember(object):
                 self.SetPeerParameters(msg_handshake)
 
                 # Check if we already have a peer with the same UUID
-                other_member = self._swarm.get_member_by_uuid(msg_handshake.uuid)
+                other_member = self._swarm.get_member_by_uuid(self, msg_handshake.uuid)
                 if other_member is not None:
                     if msg_handshake.uuid > self._swarm._uuid:
                         # Keep this conenction and remove the other member (incomming uuid > our uuid)
