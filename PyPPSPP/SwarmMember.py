@@ -278,6 +278,19 @@ class SwarmMember(object):
                                  msg_handshake, self.ip_address, self.udp_port, 
                                  self._proto.connection_id)
 
+                # Check if we already have a peer with the same UUID
+                other_member = self._swarm.get_member_by_uuid(msg_handshake.uuid)
+                if other_member is not None:
+                    if other_member.uuid > self._swarm._uuid:
+                        # Other member was initiating and has higher uuid - keep it
+                        member_to_destroy = self
+                    else:
+                        member_to_destroy = other_member
+
+                    logging.info('Duplicate connection, destroying %s', member_to_destroy)
+                    member_to_destroy.destroy()
+                    self._swarm.RemoveMember(member_to_destroy)
+
                 self.SetPeerParameters(msg_handshake)
                 self.is_init = True
                 if self._cleanup_hdl is not None:
@@ -297,10 +310,14 @@ class SwarmMember(object):
                 other_member = self._swarm.get_member_by_uuid(msg_handshake.uuid)
                 if other_member is not None:
                     if msg_handshake.uuid > self._swarm._uuid:
-                        # Keep this conenction and remove the other member
-                        logging.info('Destroying member %s due to the incomming connection being prefered')
-                        other_member.destroy()
-                        self._swarm.RemoveMember(other_member)
+                        # Keep this conenction and remove the other member (incomming uuid > our uuid)
+                        member_to_destroy = other_member
+                    else:
+                        member_to_destroy = self
+
+                    logging.info('Duplicate connection, destroying %s', member_to_destroy)
+                    member_to_destroy.destroy()
+                    self._swarm.RemoveMember(member_to_destroy)
 
                 self.SetPeerParameters(msg_handshake)
                 self.SendReplyHandshake()
