@@ -624,7 +624,7 @@ class Swarm(object):
             return None
 
         for member in self._members:
-            if member.is_init and member.uuid == member_uuid:
+            if member.uuid == member_uuid:
                 return member
 
         return None
