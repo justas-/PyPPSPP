@@ -617,6 +617,18 @@ class Swarm(object):
 
         logging.info("Wrote logs to file: {}".format(result_file))
 
+    def get_member_by_uuid(self, member_uuid):
+        """Get member having indicated UUID"""
+
+        if member_uuid is None:
+            return None
+
+        for member in self._members:
+            if member.is_init and member.uuid == member_uuid:
+                return member
+
+        return None
+
     def add_other_peers(self, other_peers):
         """Add other known peers in [(IP, Port)] form"""
 
