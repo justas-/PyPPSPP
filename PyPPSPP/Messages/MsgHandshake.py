@@ -1,10 +1,10 @@
-from GlobalParams import GlobalParams as GB
-from Messages.MessageTypes import MsgTypes
-
 from struct import pack, pack_into, unpack
 from array import array
-
+import uuid
 import logging
+
+from GlobalParams import GlobalParams as GB
+from Messages.MessageTypes import MsgTypes
 
 class MsgHandshake(object):
     """A class representing PPSPP handshake message"""
@@ -21,6 +21,7 @@ class MsgHandshake(object):
         self.supported_messages_len = GB.supported_messages_len
         self.supported_messages = GB.supported_messages
         self.chunk_size = GB.chunk_size
+        self.uuid = None
 
         # Used during handshake
         self.our_channel = 0
@@ -97,6 +98,13 @@ class MsgHandshake(object):
         pack_into('>ci', wb, offset, bytes([9]), self.chunk_size)
         offset = offset + 5
 
+        # [10] Peer UUID
+        pack_into('>c', wb, offset, bytes([10]))
+        offset = offset + 1
+
+        wb[offset:offset+16] = self.uuid.bytes
+        offset = offset + 16
+
         # [255] End option
         pack_into('c', wb, offset, bytes([255]))
         offset = offset + 1
@@ -167,6 +175,11 @@ class MsgHandshake(object):
                 self.chunk_size = unpack('>I', data[idx:idx+4])[0]
                 logging.debug("Parsed cz: {0}".format(self.chunk_size))
                 idx = idx + 4
+            elif next_tag == 10:
+                idx = idx + 1
+                self.uuid = uuid.uuid4(bytes=data[idx:idx+16])
+                logging.debug('Parsed peer UUID: %s', self.uuid)
+                idx = idx + 16
             elif next_tag == 255:
                 logging.debug("Parsed: EOM")
                 return idx + 1
