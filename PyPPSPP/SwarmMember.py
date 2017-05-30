@@ -277,6 +277,9 @@ class SwarmMember(object):
                     logging.info('Received reply %s Peer: %s:%s Conn: %s',
                                  msg_handshake, self.ip_address, self.udp_port, 
                                  self._proto.connection_id)
+                
+                # This is done before the duplicate check so the remote channel is set
+                self.SetPeerParameters(msg_handshake)
 
                 # Check if we already have a peer with the same UUID
                 other_member = self._swarm.get_member_by_uuid(msg_handshake.uuid)
@@ -291,7 +294,6 @@ class SwarmMember(object):
                     member_to_destroy.destroy()
                     self._swarm.RemoveMember(member_to_destroy)
 
-                self.SetPeerParameters(msg_handshake)
                 self.is_init = True
                 if self._cleanup_hdl is not None:
                     self._cleanup_hdl.cancel()
@@ -306,6 +308,9 @@ class SwarmMember(object):
                                  msg_handshake, self.ip_address, self.udp_port, 
                                  self._proto.connection_id, msg_handshake.uuid)
 
+                # This is done before the duplicate check so the remote channel is set
+                self.SetPeerParameters(msg_handshake)
+
                 # Check if we already have a peer with the same UUID
                 other_member = self._swarm.get_member_by_uuid(msg_handshake.uuid)
                 if other_member is not None:
@@ -319,7 +324,6 @@ class SwarmMember(object):
                     member_to_destroy.destroy()
                     self._swarm.RemoveMember(member_to_destroy)
 
-                self.SetPeerParameters(msg_handshake)
                 self.SendReplyHandshake()
                 self.is_init = True
                 if self._cleanup_hdl is not None:
