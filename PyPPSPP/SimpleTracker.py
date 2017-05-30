@@ -32,8 +32,6 @@ class SimpleTracker(object):
         # We can continue operating even if connection to the tracker is lost
         return None
 
-
-
     def data_received(self, data):
         """Called with deserialized message from the tracker server"""
 

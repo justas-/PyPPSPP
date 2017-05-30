@@ -142,7 +142,7 @@ class Swarm(object):
                 filename = args.filename, 
                 filesize = args.filesize)
 
-        logging.info("Created Swarm with ID: {0}".format(args.swarmid))
+        logging.info('Created Swarm with ID: %s; Our UUID: %s', args.swarmid, self._uuid)
 
         # Start periodic ALTO requests
         if self._use_alto:
@@ -230,17 +230,17 @@ class Swarm(object):
             return 'E_FULL'
 
         # Check for duplicate members
-        if proto is None:
-            # UDP
-            if any([m for m in self._members if m.ip_address == ip_address and m.udp_port == port]):
-                logging.info('Member {0}:{1} is already present and will be ignorred'
-                             .format(ip_address, port))
-                return 'E_DUP_UDP'
-        else:
-            #TCP
-            if any([m for m in self._members if m.ip_address == ip_address]):
-                logging.info('Member at {0} is already present and will be ignorred'.format(ip_address))
-                return 'E_DUP_TCP'
+        #if proto is None:
+        #    # UDP
+        #    if any([m for m in self._members if m.ip_address == ip_address and m.udp_port == port]):
+        #        logging.info('Member {0}:{1} is already present and will be ignorred'
+        #                     .format(ip_address, port))
+        #        return 'E_DUP_UDP'
+        #else:
+        #    #TCP
+        #    if any([m for m in self._members if m.ip_address == ip_address]):
+        #        logging.info('Member at {0} is already present and will be ignorred'.format(ip_address))
+        #        return 'E_DUP_TCP'
 
         new_member = SwarmMember(self, ip_address, port, proto, self._next_peer_num)
         self._next_peer_num += 1
@@ -608,9 +608,13 @@ class Swarm(object):
     def _log_data(self, data):
         """Log all data from the data dict to unique file"""
         
+        if not os.path.exists(self._args.output_dir):
+            os.makedirs(self._args.output_dir)
+
         result_file = self._args.output_dir+'results_'+self._args.result_id+".dat"
         with open(result_file,"w") as fp:
             fp.write(json.dumps(data))
+
         logging.info("Wrote logs to file: {}".format(result_file))
 
     def add_other_peers(self, other_peers):

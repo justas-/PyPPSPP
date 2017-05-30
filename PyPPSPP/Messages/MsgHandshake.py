@@ -177,7 +177,7 @@ class MsgHandshake(object):
                 idx = idx + 4
             elif next_tag == 10:
                 idx = idx + 1
-                self.uuid = uuid.uuid4(bytes=data[idx:idx+16])
+                self.uuid = uuid.UUID(bytes=bytes(data[idx:idx+16]))
                 logging.debug('Parsed peer UUID: %s', self.uuid)
                 idx = idx + 16
             elif next_tag == 255:
