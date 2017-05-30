@@ -253,12 +253,10 @@ class SwarmMember(object):
         if self.is_init == True:
             if msg_handshake._is_goodbye == True:
                 logging.info("Received goodbye HANDSHAKE")
-                if self._sending_handle != None:
-                    self._sending_handle.cancel()
-                    self._sending_handle = None
-                self._save_stats()
+                self.destroy(send_disconnect=False)
                 self._swarm.RemoveMember(self)
             else:
+                # This is OK in UDP. Non-critical in TCP
                 logging.info("Received non-goodbye HANDSHAKE in initialized the channel")
             return
         else:
@@ -266,10 +264,7 @@ class SwarmMember(object):
             if msg_handshake._is_goodbye ==  True:
                 # Got Goodbye from non-init member...
                 logging.info("Received goodbye HANDSHAKE from non-init member")
-                if self._sending_handle != None:
-                    self._sending_handle.cancel()
-                    self._sending_handle = None
-                self._save_stats()
+                self.destroy(send_disconnect=False)
                 self._swarm.RemoveMember(self)
 
             elif self.is_hs_sent == True:
@@ -290,8 +285,6 @@ class SwarmMember(object):
                     self._cleanup_hdl = None
 
             elif self.is_hs_sent == False:
-                # This is remote peer initiating connection to us
-                # TODO: Catch the exception here and let the peer object die...
                 if self._is_udp:
                     logging.info('Received init %s Peer: %s:%s',
                                  msg_handshake, self.ip_address, self.udp_port)
@@ -299,6 +292,15 @@ class SwarmMember(object):
                     logging.info('Received init %s Peer: %s:%s Conn: %s Peer UUID: %s',
                                  msg_handshake, self.ip_address, self.udp_port, 
                                  self._proto.connection_id, msg_handshake.uuid)
+
+                # Check if we already have a peer with the same UUID
+                other_member = self._swarm.get_member_by_uuid(msg_handshake.uuid)
+                if other_member is not None:
+                    if msg_handshake.uuid > self._swarm._uuid:
+                        # Keep this conenction and remove the other member
+                        logging.info('Destroying member %s due to the incomming connection being prefered')
+                        other_member.destroy()
+                        self._swarm.RemoveMember(other_member)
 
                 self.SetPeerParameters(msg_handshake)
                 self.SendReplyHandshake()
@@ -547,10 +549,16 @@ class SwarmMember(object):
             self._sending_handle.cancel()
             self._sending_handle = None
 
+        # Close cleanup handle if present
+        if self._cleanup_hdl is not None:
+            self._cleanup_hdl.cancel()
+            self._cleanup_hdl = None
+
         # Send disconnect if reuqired
         if send_disconnect:
             self.send_goodbye()
 
+        # Remove member from TCP connection
         if not self._is_udp:
             self._proto.remove_member(self)
 
