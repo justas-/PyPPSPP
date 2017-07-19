@@ -91,9 +91,10 @@ class PeerProtocolTCP(asyncio.Protocol):
 
         try:
             self._transport.write(packet)
-        except Exception as e:
-            logging.warn("Conn: {} Exception when sending: {}"
-                         .format(self._connection_id, e))
+        except Exception as exc:
+            #logging.warn("Conn: {} Exception when sending: {}"
+            #             .format(self._connection_id, e))
+            logging.exception('Conn: %s Exception while sending', self._connection_id, exc_info=exc)
             self.remove_all_members()
 
     def data_received(self, data):
@@ -211,6 +212,7 @@ class PeerProtocolTCP(asyncio.Protocol):
         logging.info('Force-closing connection ({}) to: {}:{}'
                      .format(self._connection_id, self._ip, self._port))
         self._hive.remove_orphan_connection(self)
+        self.remove_all_members()
 
         if not self._is_closed:
             self._transport.close()
