@@ -581,7 +581,8 @@ class SwarmMember(object):
 
         # Remove member from TCP connection
         if not self._is_udp:
-            self._proto.remove_member(self)
+            if self._proto is not None:
+                self._proto.remove_member(self)
 
         # Save the stats
         self._save_stats()

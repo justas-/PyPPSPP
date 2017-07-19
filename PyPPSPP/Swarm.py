@@ -325,14 +325,20 @@ class Swarm(object):
         all_req_local = self._get_all_requested()
 
         # Take note what is the last chunkid fed into Content consumer
+       
         if self._cont_consumer is None:
             logging.error('Forward window set, but missing content consumer! Dlfwd will be turned off!')
             self.dlfwd = 0
         else:
-            last_showed = self._cont_consumer.last_showed_chunk()
-            if last_showed is None:
-                last_showed = 0
-            max_permitted = last_showed + self.dlfwd
+            if self._cont_consumer.playback_started():
+                last_showed = self._cont_consumer.last_showed_chunk()
+                if last_showed is None:
+                    last_showed = 0
+                max_permitted = last_showed + self.dlfwd
+            else:
+                # TODO: Adjust this! The number should be small enough to encompass all chunk within starting window
+                max_permitted = self.dlfwd + 2500
+            
 
         # Check all members for any missing pieces
         if self._use_alto and self._alto_members is not None:
@@ -509,12 +515,6 @@ class Swarm(object):
     def SendHaveToMembers(self):
         """Send to members all information about chunks we have"""
         
-        init_members = [m for m in self._members if m.is_init]
-        num_verified = len(init_members)
-
-        logging.info("Sending HAVE({}) to init peers ({})"
-                     .format(self._have_ranges, num_verified))
-
         # Build representation of our data using HAVE messages
         msg = bytearray()
         for range_data in self._have_ranges:
@@ -522,13 +522,14 @@ class Swarm(object):
             have.start_chunk = range_data[0]
             have.end_chunk = range_data[1]
             msg.extend(have.BuildBinaryMessage())
-
-        # Send our information to all members
-        for member in init_members:
+        
+        num_sent = 0
+        for member in [m for m in self._members if m.is_init]:
             hs = bytearray()
             hs.extend(struct.pack('>I', member.remote_channel))
             hs.extend(msg)
             member.SendAndAccount(hs)
+            logging.info("Sent HAVE(%s) to peer: %s", self._have_ranges, member)
 
     def GetChunkData(self, chunk):
         """Get Data of indicated chunk"""
