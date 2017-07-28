@@ -12,6 +12,7 @@ import json
 import binascii
 import operator
 import uuid
+import random
 
 from SwarmMember import SwarmMember
 from GlobalParams import GlobalParams
@@ -325,21 +326,31 @@ class Swarm(object):
         all_req_local = self._get_all_requested()
 
         # Take note what is the last chunkid fed into Content consumer
+
+        playback_started = False
+        last_showed = None
        
         if self._cont_consumer is None:
             logging.error('Forward window set, but missing content consumer! Dlfwd will be turned off!')
             self.dlfwd = 0
         else:
-            if self._cont_consumer.playback_started():
+            playback_started = self._cont_consumer.playback_started()
+            if playback_started:
                 last_showed = self._cont_consumer.last_showed_chunk()
                 if last_showed is None:
                     last_showed = 0
                 max_permitted = last_showed + self.dlfwd
             else:
                 # TODO: Adjust this! The number should be small enough to encompass all chunk within starting window
-                max_permitted = self.dlfwd + 2500
-            
+                max_permitted = self.dlfwd + 1000
 
+        if playback_started:
+            OUTSTANDING_LIMIT = 150
+            REQUEST_LIMIT = 250
+        else:
+            OUTSTANDING_LIMIT = 100
+            REQUEST_LIMIT = 150
+            
         # Check all members for any missing pieces
         if self._use_alto and self._alto_members is not None:
             # During startup ALTO member list might be smaller, so
@@ -351,6 +362,11 @@ class Swarm(object):
                 members_list = self._members
         else:
             members_list = self._members
+
+        logging.info('Have ranges: {}; LastSh: {}; Max permitted: {}; Playing: {};'.format(self._have_ranges, last_showed, max_permitted, playback_started))
+
+        # Poor man's load balancing
+        random.shuffle(members_list)
 
         for member in members_list:
             # Build missing chunks
@@ -376,28 +392,28 @@ class Swarm(object):
             b_any_outstanding = any(member.set_i_requested)
 
             # Not needing anything and not waiting for anything
-            if not b_any_outstanding and not b_any_required:
-                continue
+            #if not b_any_outstanding and not b_any_required:
+            #    continue
 
             num_required = len(required_chunks)
             num_outstanding = len(member.set_i_requested)
+            num_member_has = len(member.set_have)
 
-            logging.info('(Greedy) Member: {}. I need {}; Outstanding: {}'
-                         .format(member, num_required, num_outstanding))
+            logging.info('(Greedy) Member: {}. Has: {}; I need {}; Outstanding: {}'
+                         .format(member, num_member_has, num_required, num_outstanding))
             
             # Continue if there's nothing to request
             if not b_any_required:
                 continue
 
             # Continue if backlog is large
-            if num_outstanding > 350:
+            if num_outstanding > OUTSTANDING_LIMIT:
                 continue
 
             # Request up to REQ_LIMIT chunks
-            REQ_LIMIT = 500
-            if num_required > REQ_LIMIT:
+            if num_required > REQUEST_LIMIT:
                 required_chunks.sort()
-                required_chunks = required_chunks[0:REQ_LIMIT]
+                required_chunks = required_chunks[0:REQUEST_LIMIT]
             
             # Request the data and keep track of requests
             set_to_request = set(required_chunks)
