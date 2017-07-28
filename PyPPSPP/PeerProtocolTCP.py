@@ -148,6 +148,19 @@ class PeerProtocolTCP(asyncio.Protocol):
                 logging.warn("Got data for channel {}, but channel is not there!".format(my_channel))
         else:
             # Start creating new member in a swarm
+
+            try:
+                # Goodbye?
+                if data[4] == 0 and struct.unpack('>I', data[5:9])[0] == 0:
+                    logging.info('Received goodbye from %s:%s (%s)', 
+                        self._ip, self._port, self._connection_id)
+                    self.remove_all_members()
+                    return
+            except Exception as exc:
+                logging.error('Exception checking for goodbye message. Exception: {}; Data: {}; Peer: {}:{}'
+                          .format(exp, data, self._ip, self._port))
+                self.force_close_connection()
+                return 
             
             try:
                 swarm_id_len = struct.unpack('>H', data[14:16])[0]
