@@ -43,6 +43,9 @@
     <Compile Include="FileChunkStorage.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="FileUtil.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="GlobalParams.py">
       <SubType>Code</SubType>
     </Compile>
