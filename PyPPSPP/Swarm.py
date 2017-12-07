@@ -1,3 +1,21 @@
+"""
+PyPPSPP, a Python3 implementation of Peer-to-Peer Streaming Peer Protocol
+Copyright (C) 2016,2017  J. Poderys, Technical University of Denmark
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
 import logging
 import math
 import asyncio
@@ -10,11 +28,15 @@ import socket
 import time
 import json
 import binascii
+import operator
+import uuid
+import random
 
 from SwarmMember import SwarmMember
 from GlobalParams import GlobalParams
 from Messages import *
 from PeerProtocolTCP import PeerProtocolTCP
+from ALTOInterface import ALTOInterface
 
 from AbstractChunkStorage import AbstractChunkStorage
 from MemoryChunkStorage import MemoryChunkStorage
@@ -42,6 +64,23 @@ class Swarm(object):
             self.dlfwd = args.dlfwd
         else:
             self.dlfwd = 0
+
+        self._uuid = uuid.uuid4()
+
+        # setup for ALTO
+        self._use_alto = False
+        self._alto_cost_type = None
+        self._alto = None
+        self._alto_period = 0
+        self._alto_event = None
+        self._alto_members = None
+        self._alto_addr = None
+
+        if args.alto:
+            self._use_alto = True
+            self._alto_cost_type = args.altocosttype
+            self._alto_period = 15
+            self._alto_addr = args.altoserver
 
         self._socket = socket
         self._members = []
@@ -122,17 +161,76 @@ class Swarm(object):
                 filename = args.filename, 
                 filesize = args.filesize)
 
-        logging.info("Created Swarm with ID: {0}".format(args.swarmid))
+        logging.info('Created Swarm with ID: %s; Our UUID: %s', args.swarmid, self._uuid)
+
+        # Start periodic ALTO requests
+        if self._use_alto:
+            logging.info('Initializing ALTO interface to server %s', self._alto_addr)
+            self._alto = ALTOInterface(self._alto_addr)
+            self._alto_event = asyncio.get_event_loop().call_later(
+                self._alto_period, self.alto_lookup)
 
         # Start printing stats
         self._periodic_stats_handle = asyncio.get_event_loop().call_later(
             self._periodic_stats_freq,
             self._print_periodic_stats)
 
+    def alto_lookup(self):
+        """Request ranking using given cost provider"""
+        member_ips = [member.ip_address for member in self._members]
+        self._alto.rank_sources(
+            member_ips, self._alto_cost_type, self.alto_callback)
+        self._alto_event = asyncio.get_event_loop().call_later(
+            self._alto_period, self.alto_lookup)
+
+    def alto_callback(self, cost_map):
+        """Callback for ALTO lookup"""
+
+        # Print debug information
+        logging.info('Got cost-map from ALTO: %s', cost_map)
+
+        # Do not use stale ALTO data
+        if cost_map is None:
+            self._alto_members = None
+            return
+
+        # Build a list using ALTO returned keys and the rest at the end
+        if self._alto_cost_type == 'residual-pathbandwidth':
+            ips_min_to_max = sorted(cost_map.items(), key=operator.itemgetter(1), reverse=True)
+        else:
+            ips_min_to_max = sorted(cost_map.items(), key=operator.itemgetter(1))
+
+        sorted_members = []
+        members_copy = self._members.copy()
+
+        # Add members by the cost
+        for (ip, cost) in ips_min_to_max:
+            member = next((m for m in members_copy if m.ip_address == ip), None)
+            if member is None:
+                continue
+            else:
+                sorted_members.append(member)
+                members_copy.remove(member)
+
+        # Add the remaining members
+        sorted_members.extend(members_copy)
+
+        # Update the parameter
+        self._alto_members = sorted_members
+
     def SendData(self, ip_address, port, data):
         """Send data over a socket used by this swarm"""
         self._socket.sendto(data, (ip_address, port))
         self._all_data_tx += len(data)
+
+    def any_valid_members_at(self, ip_address):
+        """Return True if swarm has any init members at given IP"""
+        
+        for member in self._members:
+            if member.is_init and member.ip_address == ip_address:
+                return True
+        
+        return False
 
     def any_free_peer_slots(self):
         """Check if the swarm can accept any peers"""
@@ -142,33 +240,34 @@ class Swarm(object):
     def AddMember(self, ip_address, port = 6778, proto = None):
         """Add a member to a swarm and try to initialize connection"""
         
+        logging.info('Swarm::AddMember Request: IP: %s; Port: %s; Proto present: %s',
+                     ip_address, port, bool(proto))
+
         # Check if the swarm is full
         if self._max_peers is not None and len(self._members) >= self._max_peers:
             logging.info("Swarm: Max number of peers reached (Skipping: {0}:{1})".format(ip_address, port))
             return 'E_FULL'
 
         # Check for duplicate members
-        if proto is None:
-            # UDP
-            if any([m for m in self._members if m.ip_address == ip_address and m.udp_port == port]):
-                logging.info('Member {0}:{1} is already present and will be ignorred'
-                             .format(ip_address, port))
-                return 'E_DUP_UDP'
-        else:
-            #TCP
-            if any([m for m in self._members if m.ip_address == ip_address]):
-                logging.info('Member at {0} is already present and will be ignorred'.format(ip_address))
-                return 'E_DUP_TCP'
+        #if proto is None:
+        #    # UDP
+        #    if any([m for m in self._members if m.ip_address == ip_address and m.udp_port == port]):
+        #        logging.info('Member {0}:{1} is already present and will be ignorred'
+        #                     .format(ip_address, port))
+        #        return 'E_DUP_UDP'
+        #else:
+        #    #TCP
+        #    if any([m for m in self._members if m.ip_address == ip_address]):
+        #        logging.info('Member at {0} is already present and will be ignorred'.format(ip_address))
+        #        return 'E_DUP_TCP'
 
-        logging.info("Swarm: Adding member at {0}:{1}".format(ip_address, port))
-
-        m = SwarmMember(self, ip_address, port, proto)
-        self._members.append(m)
-
-        m._peer_num = self._next_peer_num
+        new_member = SwarmMember(self, ip_address, port, proto, self._next_peer_num)
         self._next_peer_num += 1
+        self._members.append(new_member)
 
-        return m
+        logging.info('Swarm::AddMember: Created member: %s', new_member)
+
+        return new_member
 
     def GetMemberByChannel(self, channel):
         """Get a member in a swarm with the given channel ID"""
@@ -245,17 +344,49 @@ class Swarm(object):
         all_req_local = self._get_all_requested()
 
         # Take note what is the last chunkid fed into Content consumer
+
+        playback_started = False
+        last_showed = None
+       
         if self._cont_consumer is None:
             logging.error('Forward window set, but missing content consumer! Dlfwd will be turned off!')
             self.dlfwd = 0
         else:
-            last_showed = self._cont_consumer.last_showed_chunk()
-            if last_showed is None:
-                last_showed = 0
-            max_permitted = last_showed + self.dlfwd
+            playback_started = self._cont_consumer.playback_started()
+            if playback_started:
+                last_showed = self._cont_consumer.last_showed_chunk()
+                if last_showed is None:
+                    last_showed = 0
+                max_permitted = last_showed + self.dlfwd
+            else:
+                # TODO: Adjust this! The number should be small enough to encompass all chunk within starting window
+                max_permitted = self.dlfwd + 1000
 
+        if playback_started:
+            OUTSTANDING_LIMIT = 150
+            REQUEST_LIMIT = 250
+        else:
+            OUTSTANDING_LIMIT = 100
+            REQUEST_LIMIT = 150
+            
         # Check all members for any missing pieces
-        for member in self._members:
+        if self._use_alto and self._alto_members is not None:
+            # During startup ALTO member list might be smaller, so
+            # use normal members list
+            if len(self._alto_members) >= len(self._members) - 3:
+                logging.info('Using ALTO sorted members list')
+                members_list = self._alto_members
+            else:
+                members_list = self._members
+        else:
+            members_list = self._members
+
+        logging.info('Have ranges: {}; LastSh: {}; Max permitted: {}; Playing: {};'.format(self._have_ranges, last_showed, max_permitted, playback_started))
+
+        # Poor man's load balancing
+        random.shuffle(members_list)
+
+        for member in members_list:
             # Build missing chunks
             req_chunks_no_filter = member.set_have - self.set_have - all_req_local
             
@@ -279,28 +410,28 @@ class Swarm(object):
             b_any_outstanding = any(member.set_i_requested)
 
             # Not needing anything and not waiting for anything
-            if not b_any_outstanding and not b_any_required:
-                continue
+            #if not b_any_outstanding and not b_any_required:
+            #    continue
 
             num_required = len(required_chunks)
             num_outstanding = len(member.set_i_requested)
+            num_member_has = len(member.set_have)
 
-            logging.info('(Greedy) Member: {}. I need {}; Outstanding: {}'
-                         .format(member, num_required, num_outstanding))
+            logging.info('(Greedy) Member: {}. Has: {}; I need {}; Outstanding: {}'
+                         .format(member, num_member_has, num_required, num_outstanding))
             
             # Continue if there's nothing to request
             if not b_any_required:
                 continue
 
             # Continue if backlog is large
-            if num_outstanding > 350:
+            if num_outstanding > OUTSTANDING_LIMIT:
                 continue
 
             # Request up to REQ_LIMIT chunks
-            REQ_LIMIT = 500
-            if num_required > REQ_LIMIT:
+            if num_required > REQUEST_LIMIT:
                 required_chunks.sort()
-                required_chunks = required_chunks[0:REQ_LIMIT]
+                required_chunks = required_chunks[0:REQUEST_LIMIT]
             
             # Request the data and keep track of requests
             set_to_request = set(required_chunks)
@@ -418,12 +549,6 @@ class Swarm(object):
     def SendHaveToMembers(self):
         """Send to members all information about chunks we have"""
         
-        init_members = [m for m in self._members if m.is_init]
-        num_verified = len(init_members)
-
-        logging.info("Sending HAVE({}) to init peers ({})"
-                     .format(self._have_ranges, num_verified))
-
         # Build representation of our data using HAVE messages
         msg = bytearray()
         for range_data in self._have_ranges:
@@ -431,13 +556,14 @@ class Swarm(object):
             have.start_chunk = range_data[0]
             have.end_chunk = range_data[1]
             msg.extend(have.BuildBinaryMessage())
-
-        # Send our information to all members
-        for member in init_members:
+        
+        num_sent = 0
+        for member in [m for m in self._members if m.is_init]:
             hs = bytearray()
             hs.extend(struct.pack('>I', member.remote_channel))
             hs.extend(msg)
             member.SendAndAccount(hs)
+            logging.info("Sent HAVE(%s) to peer: %s", self._have_ranges, member)
 
     def GetChunkData(self, chunk):
         """Get Data of indicated chunk"""
@@ -517,10 +643,26 @@ class Swarm(object):
     def _log_data(self, data):
         """Log all data from the data dict to unique file"""
         
+        if not os.path.exists(self._args.output_dir):
+            os.makedirs(self._args.output_dir)
+
         result_file = self._args.output_dir+'results_'+self._args.result_id+".dat"
         with open(result_file,"w") as fp:
             fp.write(json.dumps(data))
+
         logging.info("Wrote logs to file: {}".format(result_file))
+
+    def get_member_by_uuid(self, calling_member, member_uuid):
+        """Get member having indicated UUID"""
+
+        if member_uuid is None:
+            return None
+
+        for member in self._members:
+            if calling_member != member and member.uuid == member_uuid:
+                return member
+
+        return None
 
     def add_other_peers(self, other_peers):
         """Add other known peers in [(IP, Port)] form"""
@@ -538,6 +680,15 @@ class Swarm(object):
     def close_swarm(self):
         """Close the swarm and send disconnect to all members"""
         logging.info("Request to close swarm nicely!")
+
+        # Cancel events
+        if self._alto_event is not None:
+            self._alto_event.cancel()
+            self._alto_event = None
+
+        if self._periodic_stats_handle is not None:
+            self._periodic_stats_handle.cancel()
+            self._periodic_stats_handle = None
 
         # Send departure handshakes
         for member in self._members:

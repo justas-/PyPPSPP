@@ -1,3 +1,21 @@
+"""
+PyPPSPP, a Python3 implementation of Peer-to-Peer Streaming Peer Protocol
+Copyright (C) 2016,2017  J. Poderys, Technical University of Denmark
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
 import asyncio
 import logging
 import pickle
@@ -39,6 +57,7 @@ class ContentConsumer(object):
         self._consume_run = 0           # Number of time consume event ran
         self._buffer_start = 0          # Time when buffering stops and consuming start
         self._num_skipped = 0           # Number of data chunks skipped
+        self._chunk_at_start = 0        # Chunk number when playback starts
 
 
     def last_showed_chunk(self):
@@ -46,6 +65,10 @@ class ContentConsumer(object):
 
         with self._last_showed_lock:
             return self._last_showed
+
+    def playback_started(self):
+        """Return True if buffering is over and playback has started"""
+        return bool(self._start_time != 0)
 
     def thread_entry(self):
         """Entry point for consumption happening in the thread"""
@@ -222,6 +245,9 @@ class ContentConsumer(object):
                              .format(av_data['id'], len(av_data['vd']), len(av_data['ad']), av_data['in'], 
                                 chunk_start, chunk_end))
 
+            if self._frames_consumed == self._video_buffer_sz:
+                self._chunk_at_start = chunk_end
+
             if self._content_len is not None and self._content_len == self._frames_consumed:
                 logging.info('End of content reached!')
                 self._stop_thread = True
@@ -317,5 +343,6 @@ class ContentConsumer(object):
         stat['consume_runs'] = self._consume_run
         stat['buffer_start'] = self._buffer_start
         stat['chunks_skipped'] = self._num_skipped
+        stat['chunk_at_start'] = self._chunk_at_start
 
         return stat

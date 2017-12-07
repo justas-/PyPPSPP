@@ -1,3 +1,21 @@
+"""
+PyPPSPP, a Python3 implementation of Peer-to-Peer Streaming Peer Protocol
+Copyright (C) 2016,2017  J. Poderys, Technical University of Denmark
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
 import logging
 import socket
 import random
@@ -6,19 +24,19 @@ import ALTOInterface
 
 class SimpleTracker(object):
     """This class abstracts a simple tracket. It can later be replaced with PPSP-TP"""
+    @staticmethod
+    def get_my_ip():
+        """Get My IP address. This is an awful hack"""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.connect(('1.1.1.1', 0))
+        return sock.getsockname()[0]
 
     def __init__(self):
         self._tracekr_protocol = None
-        self._myip = self._get_my_ip()
         self._hive = None
         self._use_alto = False
         self._alto = None
-
-    def set_use_alto(self):
-        self._use_alto = True
-        self._alto = ALTOInterface.ALTOInterface("http://10.0.102.4:5000")
-        self._alto.get_costmap()
-        self._alto.get_networkmap()
+        self._myip = SimpleTracker.get_my_ip()
 
     def set_hive(self, hive):
         """Link tracker to the hive"""
@@ -31,12 +49,6 @@ class SimpleTracker(object):
         """Connection to the tracker was lost..."""
         # We can continue operating even if connection to the tracker is lost
         return None
-
-    def _get_my_ip(self):
-        """Get My IP address. This is an awful hack"""
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(('1.1.1.1', 0))
-        return s.getsockname()[0]
 
     def data_received(self, data):
         """Called with deserialized message from the tracker server"""
@@ -67,12 +79,9 @@ class SimpleTracker(object):
             if swarm.live and swarm.live_src:
                 return
 
-            if self._use_alto:
-                self.handle_other_peers_alto(swarm, data)
-                return
-            else:
-                self.handle_other_peers(swarm, data)
-                return
+            self.handle_other_peers(swarm, data)
+            return
+
         elif data['type'] == 'new_node':
             endpoint = data['endpoint']
             logging.info('Received new_node from tracker. Node: {}:{}'
@@ -124,35 +133,6 @@ class SimpleTracker(object):
             else:
                 # This is UDP
                 m = swarm.AddMember(member[0], member[1])
-                if isinstance(m, str):
-                    pass
-                else:
-                    m.SendHandshake()
-
-    def handle_other_peers_alto(self, swarm, data):
-        """Handle other_peers message when using ALTO"""
-        # Prepare data
-        net_costs = {}
-        my_ip = self._GetMyIP()
-
-        # Sort into price buckets
-        for member in data['details']:
-            mem_cost = int(self._alto.get_cost_by_ip(my_ip, member[0]))
-            if mem_cost not in net_costs:
-                net_costs[mem_cost] = []
-            net_costs[mem_cost].append(member)
-
-        # Log our costs
-        logging.info("ALTO Sorted: {}".format(net_costs))
-
-        # Start adding
-        costs = list(net_costs.keys())
-        costs.sort()
-
-        # Add members
-        for cost in costs:
-            for member in net_costs[cost]:
-                m = self._swarm.AddMember(member[0], member[1])
                 if isinstance(m, str):
                     pass
                 else:
