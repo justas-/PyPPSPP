@@ -13,16 +13,16 @@ Sharing and downloading regular files:
 ```
 python3 PyPPSPP.py
     # Required parameters
-    --tracker <IP Address>			  # IP Address of a tracker server
-    --filename <Path>				      # A path to a file that will be shared / downloaded
-    --swarmid <Swarm ID string>		# An ID identifying clients swarm (Merkle Tree Root hash of a shared file)
-    --filesize <Size in Bytes>		# Size of a shared file in bytes
+    --tracker <IP Address>          # IP Address of a tracker server
+    --filename <Path>               # A path to a file that will be shared / downloaded
+    --swarmid <Swarm ID string>     # An ID identifying clients swarm (Merkle Tree Root hash of a shared file)
+    --filesize <Size in Bytes>      # Size of a shared file in bytes
     
     # Optional parameters
-    --numpeers <Int>				      # Limit a number of concurrent peers the client will connect to
-    --identifier <String>			    # Free text identifier added to the log/results file
-    --tcp							            # Use TCP for connections between the peers (highly recommended for now)
-    --workdir <Path>				      # Change a current directory to the one indicated
+    --numpeers <Int>                # Limit a number of concurrent peers the client will connect to
+    --identifier <String>           # Free text identifier added to the log/results file
+    --tcp                           # Use TCP for connections between the peers (highly recommended for now)
+    --workdir <Path>                # Change a current directory to the one indicated
 ```
 
 A role of a client (seeder/leecher) will be determined based on a given file and a swarm ID. If the file is not empty and its Merkle Tree Root hash matches the given Swarm ID - the client will act as a seeder sharing the file. Otherwise (if a file is not found, or Merkle hash does not match the swarm ID) the file will be overwritten with an empty file and the client will start acting as a leecher.
@@ -34,14 +34,14 @@ In the VoD use-case, the seeder is started as if it was sharing a regular file. 
 ```
 python3 PyPPSPP.py
     # Required parameters
-    --tracker <IP Address>			# IP Address of a tracker server
-    --swarmid <Swarm ID string>	# An ID identifying clients swarm (Merkle Tree Root hash of a shared file)
-    --vod							          # This is VoD client
+    --tracker <IP Address>          # IP Address of a tracker server
+    --swarmid <Swarm ID string>     # An ID identifying clients swarm (Merkle Tree Root hash of a shared file)
+    --vod                           # This is VoD client
     
     # Optional parameters
-    --skip <Int>					  # If a playback buffer is depleted, try jumping <Int> number of chunks forward. This allows the client to continue rendering a video stream if several missing chunks are blocking the rendering process
-    --buffsz <Int>					# The size of the download buffer in streaming content consumer
-    --dlfwd <Int>					  # Try to download this many chunks ahead of the last chunk that was used to render a frame
+    --skip <Int>                    # If a playback buffer is depleted, try jumping <Int> number of chunks forward. This allows the client to continue rendering a video stream if several missing chunks are blocking the rendering process
+    --buffsz <Int>                  # The size of the download buffer in streaming content consumer
+    --dlfwd <Int>                   # Try to download this many chunks ahead of the last chunk that was used to render a frame
 ```
 
 Streaming and downloading a Live stream
@@ -53,8 +53,8 @@ Switching a client to the Live streaming mode is done by adding two additional c
 ```
 python3 PyPPSPP.py
     # Use the same required parameters from the VoD use-case
-    --live							# This is a live streaming client
-    --livesrc						# This is a live streaming source
+    --live                          # This is a live streaming client
+    --livesrc                       # This is a live streaming source
 ```
 
 
@@ -64,10 +64,10 @@ A FileUtil.py tool can be used to generate files with a given size having random
 
 ```
 python3 FileUtil.py
-    --filename <Path>	# Filename that will be generated or used for hash calculation
-    --create			  # Create a file
-    --size <Int>		# Size of a created file (in Bytes)
-    --hash				  # Calculate and print a hash of a given (or generated) file
+    --filename <Path>   # Filename that will be generated or used for hash calculation
+    --create            # Create a file
+    --size <Int>        # Size of a created file (in Bytes)
+    --hash              # Calculate and print a hash of a given (or generated) file
 ```
 
 
@@ -88,9 +88,9 @@ This PPSPP client can use ALTO server to rank the peers. A simple ALTO server ca
 ```
 python3 PyPPSPP.py
     # Optional parameters enabling ALTO integration
-    --alto						        # Use ALTO to rank the peers
-    --altoserver <IP>			    # IP Address of an ALTO server
-    --altocosttype <String>		# Use the indicated ALTO cost-type
+    --alto                      # Use ALTO to rank the peers
+    --altoserver <IP>           # IP Address of an ALTO server
+    --altocosttype <String>     # Use the indicated ALTO cost-type
 ```
 
 ### Other information
