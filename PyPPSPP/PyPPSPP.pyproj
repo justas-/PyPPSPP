@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>995bf44d-b813-475a-b315-c022513f8d15</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>PyPPSPP.py</StartupFile>
+    <StartupFile>RunTestApp.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -58,15 +58,6 @@
     <Compile Include="LEDBATSendRequestedChunks.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="LEDBBAT-TEST\ledbat-sink.py">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="LEDBBAT-TEST\ledbat-src.py">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="LEDBBAT-TEST\__init__.py">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="MemoryChunkStorage.py">
       <SubType>Code</SubType>
     </Compile>
@@ -115,13 +106,34 @@
     <Compile Include="OfflineSendRequestedChunks.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="PeerProtocolLedbatUDP.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="PeerProtocolTCP.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="PeerProtocolUDP.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="pyledbat\ledbat\baseledbat.py" />
+    <Compile Include="pyledbat\ledbat\simpleledbat.py" />
+    <Compile Include="pyledbat\ledbat\swiftledbat.py" />
+    <Compile Include="pyledbat\ledbat\__init__.py" />
+    <Compile Include="pyledbat\testapp.py" />
+    <Compile Include="pyledbat\testledbat\baserole.py" />
+    <Compile Include="pyledbat\testledbat\clientrole.py" />
+    <Compile Include="pyledbat\testledbat\inflight_track.py" />
+    <Compile Include="pyledbat\testledbat\ledbat_test.py" />
+    <Compile Include="pyledbat\testledbat\serverrole.py" />
+    <Compile Include="pyledbat\testledbat\udpserver.py" />
+    <Compile Include="pyledbat\testledbat\__init__.py" />
+    <Compile Include="pyledbat\__init__.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="PyPPSPP.py" />
+    <Compile Include="RunTestApp.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="SimpleTracker.py">
       <SubType>Code</SubType>
     </Compile>
@@ -146,11 +158,14 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Messages\" />
-    <Folder Include="LEDBBAT-TEST\" />
+    <Folder Include="pyledbat\" />
+    <Folder Include="pyledbat\ledbat\" />
+    <Folder Include="pyledbat\testledbat\" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="CSV_Audio_Frames.csv" />
     <Content Include="CSV_Video_Frames.csv" />
+    <Content Include="pyledbat\pyledbat.pyproj" />
     <Content Include="ReadMe.md" />
     <Content Include="TestFiles.txt" />
   </ItemGroup>

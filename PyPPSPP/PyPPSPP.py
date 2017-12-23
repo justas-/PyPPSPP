@@ -26,6 +26,7 @@ import sys
 
 from PeerProtocolUDP import PeerProtocolUDP
 from PeerProtocolTCP import PeerProtocolTCP
+from PeerProtocolLedbatUDP import PeerProtocolLedbatUDP
 from TrackerClientProtocol import TrackerClientProtocol
 from SimpleTracker import SimpleTracker
 from Hive import Hive
@@ -66,6 +67,10 @@ def main(args):
             args.vod
     ))
 
+    #if args.tcp and args.ledbat:
+    #    logging.error('Select TCP or LEDBAT for data connections')
+    #    return
+
     if args.vod and args.live:
         logging.error('Client cannot be VOD and LIVE at the same time!')
         return
@@ -82,7 +87,7 @@ def main(args):
         logging.info('ALTO Server: %s ALTO cost type: %s',
                      args.altoserver, args.altocosttype)
 
-    if 'workdir' in args and args.workdir is not None:
+    if args.workdir is not None:
         logging.info('Changing work directory to: {}'.format(args.workdir))
         os.chdir(args.workdir)
 
@@ -123,17 +128,19 @@ def main(args):
         # TODO: This is not great
         listen = loop.create_server(lambda: PeerProtocolTCP(hive), host = "0.0.0.0", port=ip_port)
         protocol = loop.run_until_complete(listen)
-    else:
-        # Create an UDP server
-        listen = loop.create_datagram_endpoint(PeerProtocolUDP, local_addr=("0.0.0.0", ip_port))
-        transport, protocol = loop.run_until_complete(listen)
+
+    if args.ledbat:
+        # Create listening UDP socket for data
+        listen = loop.create_datagram_endpoint(lambda: PeerProtocolLedbatUDP(hive), local_addr=("0.0.0.0", ip_port))
+        ledbat_transport, ledbat_protocol = loop.run_until_complete(listen)
+        logging.info('LEDBAT UDP socket created')
 
     # At this point we have a connection to the tracker and have a listening (TCP/UDP) socket
     if args.tcp:
         sw = hive.create_swarm(protocol, args)
-    else:
-        # Create the swarm
-        protocol.init_swarm(args)
+
+    if args.ledbat:
+        hive.set_ledbat_proto(ledbat_protocol)
 
     # Register with the tracker
     tracker.register_in_tracker(args.swarmid, ip_port)
@@ -184,7 +191,7 @@ if __name__ == "__main__":
         idstr = 'runlog_'+result_id+'.log'
         logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(asctime)s %(message)s', filename=output_dir+idstr)
     else:
-        logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(asctime)s %(message)s')
+        logging.basicConfig(level=logging.DEBUG, format='[%(levelname)s] %(asctime)s %(message)s')
 
     logging.info ("PyPPSPP starting")
 
@@ -197,6 +204,7 @@ if __name__ == "__main__":
     defaults['live'] = False
     defaults['live_src'] = False
     defaults['tcp'] = True
+    defaults['ledbat'] = False
     defaults['discard_window'] = 1000
     defaults['alto'] = False
     defaults['skip'] = False
@@ -217,6 +225,7 @@ if __name__ == "__main__":
     parser.add_argument("--numpeers", help="Limit the number of peers", nargs=1, type=int)
     parser.add_argument("--identifier", help="Free text that will be added to the results file", nargs='?')
     parser.add_argument("--tcp", help="Use TCP between the peers", action='store_true', default=defaults['tcp'])
+    parser.add_argument("--ledbat", help="Use LEDBAT for data transmissions", action='store_true', default=defaults['ledbat'])
     parser.add_argument('--discardwnd', help="Live discard window size", nargs='?', default=defaults['discard_window'])
     parser.add_argument('--alto', help="Use ALTO server to rank peers", nargs='?', type=bool, default=defaults['alto'])
     parser.add_argument('--altocosttype', help='ALTO cost type', nargs='?')

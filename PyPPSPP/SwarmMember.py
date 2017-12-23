@@ -35,7 +35,7 @@ from OfflineSendRequestedChunks import OfflineSendRequestedChunks
 from VODSendRequestedChunks import VODSendRequestedChunks
 from LEDBATSendRequestedChunks import LEDBATSendRequestedChunks
 from TCPFullSendRequestedChunks import TCPFullSendRequestedChunks
-from LEDBAT import LEDBAT
+from pyledbat.ledbat.simpleledbat import SimpleLedbat
 
 class SwarmMember(object):
     """A class used to represent member in the swarm"""
@@ -120,7 +120,15 @@ class SwarmMember(object):
             else:
                 self._chunk_sending_alg = TCPFullSendRequestedChunks(self._swarm, self)
         self._sending_handle = None
-        self._ledbat = LEDBAT()
+        
+        # Ledbat
+        self._use_ledbat = False
+        self._ledbat = None
+
+        if swarm.use_ledbat:
+            self._use_ledbat = True
+            self._ledbat = SimpleLedbat()
+
 
     def _clean_uninit_member(self):
         """Remove member if not init after timeout"""
@@ -207,6 +215,12 @@ class SwarmMember(object):
         # If this is TCP - we need to register in the TCP Proto
         if not self._is_udp:
             self._proto.register_member(self)
+
+    def send_and_account_udp(self, binary_data):
+        """Send and account using UDP"""
+
+        self._swarm.SendData(self.ip_address, self.udp_port, binary_data)
+        self._total_data_tx += len(binary_data)
 
     def SendAndAccount(self, binary_data):
         # Keep this check!
@@ -385,6 +399,7 @@ class SwarmMember(object):
         # Place integrity checking here once ready
         
         # Save for stats
+        time_rx = time.time()
         self._data_msg_rx += 1
 
         # Save data to file
@@ -396,31 +411,49 @@ class SwarmMember(object):
         if not self._is_udp:
             return
 
+        if self._ledbat is not None:
+            # Send ack
+            seq = msg_data.start_chunk
+            time_stamp = msg_data.timestamp
+
+            # Get the delay
+            one_way_delay = (time.time() * 1000000) - time_stamp
+
+            msg_ack = MsgAck.MsgAck()
+            msg_ack.start_chunk = seq
+            msg_ack.end_chunk = seq
+            msg_ack.one_way_delay_sample = one_way_delay
+            msg_ack.our_channel = self.local_channel
+            msg_ack.their_channel = self.remote_channel
+
+            # Send data
+            self.send_and_account_udp(msg_ack.BuildBinaryMessage())
+
         # Pending ACK funcionality
-        if self._unacked_first is None:
-            # This is a first data piece
-            self._unacked_first = msg_data.start_chunk
-            self._unacked_last = msg_data.start_chunk
-        else:
-            # This is not a first data piece
-            if self._unacked_last+1 == msg_data.start_chunk:
-                # Keep increasing untill there's a break
-                self._unacked_last = msg_data.start_chunk
-                if self._unacked_last - self._unacked_first == 10:
-                    # Send ACK after 10 unacked
-                    if self._logger.isEnabledFor(logging.DEBUG):
-                        logging.debug("ua 10: from {} to {}".format(self._unacked_first, self._unacked_last))
-                    self.BuildAck(self._unacked_first, self._unacked_last, msg_data.timestamp)
-                    # Reset counters
-                    self._unacked_first = None
-                    self._unacked_last = None
-            else:
-                # We have a break
-                if self._logger.isEnabledFor(logging.DEBUG):
-                    logging.debug("ua br: from {} to {}".format(self._unacked_first, self._unacked_last))
-                self.BuildAck(self._unacked_first, self._unacked_last, msg_data.timestamp)
-                self._unacked_first = msg_data.start_chunk
-                self._unacked_last = msg_data.start_chunk
+        #if self._unacked_first is None:
+        #    # This is a first data piece
+        #    self._unacked_first = msg_data.start_chunk
+        #    self._unacked_last = msg_data.start_chunk
+        #else:
+        #    # This is not a first data piece
+        #    if self._unacked_last+1 == msg_data.start_chunk:
+        #        # Keep increasing untill there's a break
+        #        self._unacked_last = msg_data.start_chunk
+        #        if self._unacked_last - self._unacked_first == 10:
+        #            # Send ACK after 10 unacked
+        #            if self._logger.isEnabledFor(logging.DEBUG):
+        #                logging.debug("ua 10: from {} to {}".format(self._unacked_first, self._unacked_last))
+        #            self.BuildAck(self._unacked_first, self._unacked_last, msg_data.timestamp)
+        #            # Reset counters
+        #            self._unacked_first = None
+        #            self._unacked_last = None
+        #    else:
+        #        # We have a break
+        #        if self._logger.isEnabledFor(logging.DEBUG):
+        #            logging.debug("ua br: from {} to {}".format(self._unacked_first, self._unacked_last))
+        #        self.BuildAck(self._unacked_first, self._unacked_last, msg_data.timestamp)
+        #        self._unacked_first = msg_data.start_chunk
+        #        self._unacked_last = msg_data.start_chunk
 
     def BuildAck(self, min, max, ts):
         # Send ack to peer

@@ -108,6 +108,9 @@ class Swarm(object):
         self._next_peer_num = 1
         self._max_peers = args.numpeers
 
+        # Ledbat
+        self._ledbat = args.ledbat
+
         self._cont_consumer = None
         self._cont_generator = None
 
@@ -175,6 +178,10 @@ class Swarm(object):
             self._periodic_stats_freq,
             self._print_periodic_stats)
 
+    @property
+    def use_ledbat(self):
+        return self._ledbat
+
     def alto_lookup(self):
         """Request ranking using given cost provider"""
         member_ips = [member.ip_address for member in self._members]
@@ -217,6 +224,10 @@ class Swarm(object):
 
         # Update the parameter
         self._alto_members = sorted_members
+
+    def send_udp_data(self, ip_address, port, data):
+        """Send data via Hive's UDP socket"""
+        self._hive.send_udp_data(ip_address, port, data)
 
     def SendData(self, ip_address, port, data):
         """Send data over a socket used by this swarm"""

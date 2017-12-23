@@ -32,6 +32,32 @@ class Hive(object):
         self._orphan_connections = []
         self._pending_connection = {}
         self._next_conn_id = 1
+        self._lebat_proto = None
+
+    def ledbat(self):
+        """Are we using LEDBAT"""
+        if self._lebat_proto is not None:
+            return True
+
+    def send_udp_data(self, ip_address, port, data):
+        """Send data via UDP socket"""
+        self._lebat_proto.sendto(data, (ip_address, port))
+
+    def set_ledbat_proto(self, ledbat_proto):
+        """Link Hive with ledbat proto"""
+        self._lebat_proto = ledbat_proto
+
+    def get_member_by_channel(self, local_channel):
+        """Given local_channel, get the member"""
+
+        # Find a member
+        for swarm_id, swarm in self._swarms.items():
+            member = swarm.GetMemberByChannel(local_channel)
+            if member is not None:
+                return member
+        
+        # No member found
+        return None
 
     def create_swarm(self, socket, args):
         """Initialize a new swarm in this node"""
