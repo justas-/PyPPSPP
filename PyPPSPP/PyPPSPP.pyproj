@@ -122,11 +122,15 @@
     <Compile Include="pyledbat\testapp.py" />
     <Compile Include="pyledbat\testledbat\baserole.py" />
     <Compile Include="pyledbat\testledbat\clientrole.py" />
-    <Compile Include="pyledbat\testledbat\inflight_track.py" />
+    <Compile Include="pyledbat\testledbat\inflight_track.py">
+		<SubType>Code</SubType>
+	</Compile>
     <Compile Include="pyledbat\testledbat\ledbat_test.py" />
     <Compile Include="pyledbat\testledbat\serverrole.py" />
     <Compile Include="pyledbat\testledbat\udpserver.py" />
-    <Compile Include="pyledbat\testledbat\__init__.py" />
+    <Compile Include="pyledbat\testledbat\__init__.py">
+		<SubType>Code</SubType>
+	</Compile>
     <Compile Include="pyledbat\__init__.py">
       <SubType>Code</SubType>
     </Compile>

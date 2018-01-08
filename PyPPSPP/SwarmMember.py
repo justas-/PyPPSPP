@@ -35,7 +35,6 @@ from OfflineSendRequestedChunks import OfflineSendRequestedChunks
 from VODSendRequestedChunks import VODSendRequestedChunks
 from LEDBATSendRequestedChunks import LEDBATSendRequestedChunks
 from TCPFullSendRequestedChunks import TCPFullSendRequestedChunks
-from pyledbat.ledbat.simpleledbat import SimpleLedbat
 
 class SwarmMember(object):
     """A class used to represent member in the swarm"""
@@ -110,25 +109,18 @@ class SwarmMember(object):
             15.0, self._clean_uninit_member)
 
         # Chunk sending
+        # TODO: LEDBAT CHECK ALL THIS!!!
         self._chunk_sending_alg =  None
-        if self._swarm.live:
-            self._chunk_sending_alg = VODSendRequestedChunks(
-                self._swarm, self)
-        else:
-            if self._is_udp:
-                self._chunk_sending_alg = LEDBATSendRequestedChunks(self._swarm, self)
-            else:
-                self._chunk_sending_alg = TCPFullSendRequestedChunks(self._swarm, self)
+        #if self._swarm.live:
+        #    self._chunk_sending_alg = VODSendRequestedChunks(
+        #        self._swarm, self)
+        #else:
+        #    if self._is_udp:
+        #        self._chunk_sending_alg = LEDBATSendRequestedChunks(self._swarm, self)
+        #    else:
+        #        self._chunk_sending_alg = TCPFullSendRequestedChunks(self._swarm, self)
+        self._chunk_sending_alg = LEDBATSendRequestedChunks(self._swarm, self)
         self._sending_handle = None
-        
-        # Ledbat
-        self._use_ledbat = False
-        self._ledbat = None
-
-        if swarm.use_ledbat:
-            self._use_ledbat = True
-            self._ledbat = SimpleLedbat()
-
 
     def _clean_uninit_member(self):
         """Remove member if not init after timeout"""
@@ -423,11 +415,12 @@ class SwarmMember(object):
             msg_ack.start_chunk = seq
             msg_ack.end_chunk = seq
             msg_ack.one_way_delay_sample = one_way_delay
-            msg_ack.our_channel = self.local_channel
-            msg_ack.their_channel = self.remote_channel
 
             # Send data
-            self.send_and_account_udp(msg_ack.BuildBinaryMessage())
+            mdata_bin = bytearray()
+            mdata_bin[0:4] = struct.pack('>I', self.remote_channel)
+            mdata_bin[4:] = msg_ack.BuildBinaryMessage()
+            self.send_and_account_udp(mdata_bin)
 
         # Pending ACK funcionality
         #if self._unacked_first is None:

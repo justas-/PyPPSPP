@@ -25,14 +25,18 @@ import logging
 from Messages import *
 from AbstractSendRequestedChunks import AbstractSendRequestedChunks
 
+import pyledbat
+import pyledbat.ledbat
+import pyledbat.testledbat
+
 class LEDBATSendRequestedChunks(AbstractSendRequestedChunks):
     """Sending of requested chunks using LEDBAT"""
-    WINDOWLEN = 5
 
     def __init__(self, swarm, member):
-        self._ret_control = collections.deque(
-           LEDBATSendRequestedChunks.WINDOWLEN * [None],
-           LEDBATSendRequestedChunks.WINDOWLEN)
+        """Init sender"""
+        self._lebat = pyledbat.ledbat.simpleledbat.SimpleLedbat()
+        self._inflight = pyledbat.testledbat.inflight_track.InflightTrack()
+
         return super().__init__(swarm, member)
 
     def _build_and_send(self, chunk_id):
@@ -49,10 +53,37 @@ class LEDBATSendRequestedChunks(AbstractSendRequestedChunks):
         mdata_bin[0:4] = struct.pack('>I', self._member.remote_channel)
         mdata_bin[4:] = md.BuildBinaryMessage()
 
-        self._member.SendAndAccount(mdata_bin)
+        self._member.send_and_account_udp(mdata_bin)
         self._member.set_sent.add(chunk_id)
 
     def SendAndSchedule(self):
+        """ """
+
+        # Chunks I have and member is interested
+        set_to_send = (self._swarm.set_have & self._member.set_requested) - self._member.set_sent
+        any_to_send = any(set_to_send)
+
+        # Nothing to send
+        if not any_to_send:
+            self._member._sending_handle = asyncio.get_event_loop().call_later(
+                0.1, self._member.SendRequestedChunks)
+            return
+
+        # We have data to send:
+        # Can we send?
+        (can_send, reason) = self._ledbat.try_sending(1024 + 24)
+        if not can_send:
+            # Delay 0.1 sec
+            self._member._sending_handle = asyncio.get_event_loop().call_later(
+                0.1, self._member.SendRequestedChunks)
+            return
+
+        # We can send - Send and rechedule immediate resending
+        self._build_and_send(min(set_to_send))
+        self._member._sending_handle = asyncio.get_event_loop().call_soon(
+                self._member.SendRequestedChunks)
+
+    def SendAndSchedule_old(self):
         """Send requested data using LEDBAT"""
 
         # Get lowest chunk in flight

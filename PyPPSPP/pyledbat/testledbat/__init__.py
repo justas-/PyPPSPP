@@ -17,16 +17,16 @@ limitations under the License.
 Ledbat testing application.
 """
 
-import logging
-import asyncio
-import socket
-import os
+#import logging
+#import asyncio
+#import socket
+#import os
 
-from testledbat import udpserver
-from testledbat import clientrole
-from testledbat import serverrole
+#from testledbat import udpserver
+#from testledbat import clientrole
+#from testledbat import serverrole
 
-UDP_PORT = 6888
+#UDP_PORT = 6888
 
 def test_ledbat(params):
     """
