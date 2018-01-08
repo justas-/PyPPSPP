@@ -30,7 +30,7 @@ class MsgAck(object):
     def BuildBinaryMessage(self):
         """Build bytearray of the message"""
         wb = bytearray()
-        wb[0:] = pack('>cIIQ', 
+        wb[0:] = pack('>cIIq', 
                       bytes([MsgTypes.ACK]), 
                       self.start_chunk, 
                       self.end_chunk, 
@@ -39,7 +39,7 @@ class MsgAck(object):
 
     def ParseReceivedData(self, data):
         """Parse given bytearray to usable data"""
-        contents = unpack('>IIQ', data)
+        contents = unpack('>IIq', data)
         self.start_chunk = contents[0]
         self.end_chunk = contents[1]
         self.one_way_delay_sample = contents[2]

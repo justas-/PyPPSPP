@@ -59,7 +59,7 @@ class PeerProtocolLedbatUDP(asyncio.DatagramProtocol):
 
     def send_data(self, data, addr):
         """Send data over the socket"""
-        print("ledbat transport sent {} B data to {}".format(len(data), addr))
+        #print("ledbat transport sent {} B data to {}".format(len(data), addr))
         self.transport.sendto(data, addr)
 
     def error_received(self, exc):

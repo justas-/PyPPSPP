@@ -43,6 +43,7 @@ import pyledbat.testledbat.inflight_track
 
 OOO_THRESH = 3
 IP_PORT = 6778
+SZ_DATA = 1024
 
 class SwarmMember(object):
     """A class used to represent member in the swarm"""
@@ -376,8 +377,7 @@ class SwarmMember(object):
     def HandleHave(self, msg_have):
         """Update the local have map"""
         
-        if self._logger.isEnabledFor(logging.DEBUG):
-            logging.DEBUG("FROM > {0} > HAVE: {1}".format(self._peer_num, msg_have))
+        logging.debug("FROM > %s > HAVE: %s", self._peer_num, msg_have)
 
         # TODO: THIS NEEDS TO BE ADJUSTED FOR VOD
         if self._swarm.live and self.live_discard_wnd is not None:
@@ -428,12 +428,12 @@ class SwarmMember(object):
             time_stamp = msg_data.timestamp
 
             # Get the delay
-            one_way_delay = (time.time() * 1000000) - time_stamp
+            one_way_delay = (time_rx * 1000000) - time_stamp
 
             msg_ack = MsgAck.MsgAck()
             msg_ack.start_chunk = seq
             msg_ack.end_chunk = seq
-            msg_ack.one_way_delay_sample = one_way_delay
+            msg_ack.one_way_delay_sample = int(one_way_delay)
 
             # Send data
             mdata_bin = bytearray()
@@ -545,8 +545,10 @@ class SwarmMember(object):
 
     def HandleAck(self, msg_ack):
         """Handle incomming ACK message"""
+        
+        rx_time = time.time()
 
-        if not self._is_udp:
+        if not self._ledbat:
             logging.warn("Got ACK from TCP based peer!")
             return
 
@@ -566,10 +568,10 @@ class SwarmMember(object):
         ack_to = msg_ack.end_chunk
 
         # Do not process duplicates
-        if ack_to < self._inflight.peek():
+        if ack_to < self._in_flight.peek():
             #self.stats['DupPkt'] += 1
             logging.info('Duplciate ACK packet. ACKed: %s:%s; Head: %s',
-                    ack_from, ack_to, self._inflight.peek())
+                    ack_from, ack_to, self._in_flight.peek())
             return
 
         # Check for out-of-order and calculate rtts
@@ -582,7 +584,7 @@ class SwarmMember(object):
                     logging.info('Cleared resent from head: %s', acked_seq_num)
                 else:
                     # Reset if clearing non-resends from head of line
-                    logging.info('Setting ooo to 0')
+                    #logging.info('Setting ooo to 0')
                     self._cnt_ooo = 0
             else:
                 (time_stamp, resent, _, is_ooo) = self._in_flight.pop_given(acked_seq_num)

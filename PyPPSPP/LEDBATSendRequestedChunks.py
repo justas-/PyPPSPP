@@ -77,7 +77,7 @@ class LEDBATSendRequestedChunks(AbstractSendRequestedChunks):
 
         # We can send - Send and rechedule immediate resending
         chunk_id = min(set_to_send)
-        print("Sending Chunk {}".format(chunk_id))
+        #print("Sending Chunk {}".format(chunk_id))
         self._build_and_send(chunk_id)
         self._member.in_flight.add(chunk_id, time.time(), None)
         self._member._sending_handle = asyncio.get_event_loop().call_soon(
