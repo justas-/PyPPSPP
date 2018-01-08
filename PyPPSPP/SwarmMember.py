@@ -36,6 +36,14 @@ from VODSendRequestedChunks import VODSendRequestedChunks
 from LEDBATSendRequestedChunks import LEDBATSendRequestedChunks
 from TCPFullSendRequestedChunks import TCPFullSendRequestedChunks
 
+import pyledbat
+import pyledbat.ledbat
+import pyledbat.ledbat.simpleledbat
+import pyledbat.testledbat.inflight_track
+
+OOO_THRESH = 3
+IP_PORT = 6778
+
 class SwarmMember(object):
     """A class used to represent member in the swarm"""
 
@@ -111,6 +119,11 @@ class SwarmMember(object):
         # Chunk sending
         # TODO: LEDBAT CHECK ALL THIS!!!
         self._chunk_sending_alg =  None
+        self._ledbat = pyledbat.ledbat.simpleledbat.SimpleLedbat()
+        self._in_flight = pyledbat.testledbat.inflight_track.InflightTrack()
+        self._chunk_sending_alg = LEDBATSendRequestedChunks(self._swarm, self)
+        self._sending_handle = None
+
         #if self._swarm.live:
         #    self._chunk_sending_alg = VODSendRequestedChunks(
         #        self._swarm, self)
@@ -119,8 +132,14 @@ class SwarmMember(object):
         #        self._chunk_sending_alg = LEDBATSendRequestedChunks(self._swarm, self)
         #    else:
         #        self._chunk_sending_alg = TCPFullSendRequestedChunks(self._swarm, self)
-        self._chunk_sending_alg = LEDBATSendRequestedChunks(self._swarm, self)
-        self._sending_handle = None
+        
+    @property
+    def ledbat(self):
+        return self._ledbat
+
+    @property
+    def in_flight(self):
+        return self._in_flight
 
     def _clean_uninit_member(self):
         """Remove member if not init after timeout"""
@@ -211,7 +230,7 @@ class SwarmMember(object):
     def send_and_account_udp(self, binary_data):
         """Send and account using UDP"""
 
-        self._swarm.SendData(self.ip_address, self.udp_port, binary_data)
+        self._swarm.udp_transport.send_data(binary_data, (self.ip_address, 6778))
         self._total_data_tx += len(binary_data)
 
     def SendAndAccount(self, binary_data):
@@ -400,8 +419,8 @@ class SwarmMember(object):
         self._swarm.SaveVerifiedData(msg_data.start_chunk, msg_data.data)
 
         # No need to send ACKs in TCP
-        if not self._is_udp:
-            return
+        #if not self._is_udp:
+        #    return
 
         if self._ledbat is not None:
             # Send ack
@@ -531,13 +550,87 @@ class SwarmMember(object):
             logging.warn("Got ACK from TCP based peer!")
             return
 
+        if self._logger.isEnabledFor(logging.DEBUG):
+                logging.debug("FROM > {} > ACK: {} to {}".format(self._peer_num, msg_ack.start_chunk, msg_ack.end_chunk))
+
         for x in range(msg_ack.start_chunk, msg_ack.end_chunk + 1):
             self.set_requested.discard(x)
             self.set_sent.discard(x)
 
-        self._ledbat.feed_ack([msg_ack.one_way_delay_sample], 1)
-        if self._logger.isEnabledFor(logging.DEBUG):
-                logging.debug("FROM > {} > ACK: {} to {}".format(self._peer_num, msg_ack.start_chunk, msg_ack.end_chunk))
+        # Code lifted from pyledbat test application
+
+        delays = []
+        rtts = []
+
+        ack_from = msg_ack.start_chunk
+        ack_to = msg_ack.end_chunk
+
+        # Do not process duplicates
+        if ack_to < self._inflight.peek():
+            #self.stats['DupPkt'] += 1
+            logging.info('Duplciate ACK packet. ACKed: %s:%s; Head: %s',
+                    ack_from, ack_to, self._inflight.peek())
+            return
+
+        # Check for out-of-order and calculate rtts
+        for acked_seq_num in range(ack_from, ack_to + 1):
+
+            if acked_seq_num == self._in_flight.peek():
+                (time_stamp, resent, _) = self._in_flight.pop()
+                if resent:
+                    pass
+                    logging.info('Cleared resent from head: %s', acked_seq_num)
+                else:
+                    # Reset if clearing non-resends from head of line
+                    logging.info('Setting ooo to 0')
+                    self._cnt_ooo = 0
+            else:
+                (time_stamp, resent, _, is_ooo) = self._in_flight.pop_given(acked_seq_num)
+                if is_ooo:
+                    self._cnt_ooo += 1
+                    #self.stats['OooPkt'] += 1
+
+            #self.stats['Ack'] += 1
+            last_acked = acked_seq_num
+
+            if not resent:
+                rtts.append(rx_time - time_stamp)
+
+        if self._cnt_ooo >= OOO_THRESH:
+            resendable = self._in_flight.get_resendable(last_acked)
+            self._resend_indicated(resendable)
+            self._ledbat.data_loss()
+            self._cnt_ooo = 0
+
+        # Extract list of delays
+        #for dalay in range(0, num_delays):
+        #    delays.append(int(struct.unpack('>Q', ack_data[12+dalay*8:20+dalay*8])[0]))
+
+        delays = [msg_ack.one_way_delay_sample / 1000]
+
+        # Feed new data to LEDBAT
+        self._ledbat.update_measurements(((ack_to - ack_from + 1) * SZ_DATA) + 24, delays, rtts)
+
+    def _resend_indicated(self, resendable):
+        """Resend indicated chunks from in_flight tracker"""
+        for seq_num in resendable:
+
+            data = self._swarm.GetChunkData(chunk_id)
+        
+            md = MsgData.MsgData(self._member.chunk_size, self._member.chunk_addressing_method)
+            md.start_chunk = seq_num
+            md.end_chunk = seq_num
+            md.data = data
+            md.timestamp = int((time.time() * 1000000))
+
+            mdata_bin = bytearray()
+            mdata_bin[0:4] = struct.pack('>I', self._member.remote_channel)
+            mdata_bin[4:] = md.BuildBinaryMessage()
+
+            self.send_and_account_udp(mdata_bin)
+            
+            self._in_flight.set_resent(seq_num)
+            #self.stats['Resent'] += 1
 
     def HandleRequest(self, msg_request):
         """Handle incomming REQUEST message"""

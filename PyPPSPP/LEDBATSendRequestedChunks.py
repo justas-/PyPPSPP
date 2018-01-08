@@ -34,9 +34,6 @@ class LEDBATSendRequestedChunks(AbstractSendRequestedChunks):
 
     def __init__(self, swarm, member):
         """Init sender"""
-        self._lebat = pyledbat.ledbat.simpleledbat.SimpleLedbat()
-        self._inflight = pyledbat.testledbat.inflight_track.InflightTrack()
-
         return super().__init__(swarm, member)
 
     def _build_and_send(self, chunk_id):
@@ -71,7 +68,7 @@ class LEDBATSendRequestedChunks(AbstractSendRequestedChunks):
 
         # We have data to send:
         # Can we send?
-        (can_send, reason) = self._ledbat.try_sending(1024 + 24)
+        (can_send, reason) = self._member.ledbat.try_sending(1024 + 24)
         if not can_send:
             # Delay 0.1 sec
             self._member._sending_handle = asyncio.get_event_loop().call_later(
@@ -79,7 +76,10 @@ class LEDBATSendRequestedChunks(AbstractSendRequestedChunks):
             return
 
         # We can send - Send and rechedule immediate resending
-        self._build_and_send(min(set_to_send))
+        chunk_id = min(set_to_send)
+        print("Sending Chunk {}".format(chunk_id))
+        self._build_and_send(chunk_id)
+        self._member.in_flight.add(chunk_id, time.time(), None)
         self._member._sending_handle = asyncio.get_event_loop().call_soon(
                 self._member.SendRequestedChunks)
 

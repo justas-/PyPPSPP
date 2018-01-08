@@ -45,7 +45,7 @@ class PeerProtocolLedbatUDP(asyncio.DatagramProtocol):
 
         # Get the channel number
         my_channel = struct.unpack('>I', data[0:4])[0]
-        member = _hive.get_member_by_channel(my_channel)
+        member = self._hive.get_member_by_channel(my_channel)
 
         if member != None:
             if len(data) == 4:
@@ -56,6 +56,11 @@ class PeerProtocolLedbatUDP(asyncio.DatagramProtocol):
         else:
             logging.warning("LEDBAT Socket data received but member not found. Channel: %s; Received from: %s; Datalen: %s",
                             my_channel, addr, len(data))
+
+    def send_data(self, data, addr):
+        """Send data over the socket"""
+        print("ledbat transport sent {} B data to {}".format(len(data), addr))
+        self.transport.sendto(data, addr)
 
     def error_received(self, exc):
         logging.exception("LEDBAT Socket Error received", exc_info=exc)

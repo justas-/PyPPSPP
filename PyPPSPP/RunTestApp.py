@@ -27,6 +27,8 @@ def run():
     defaults['numpeers'] = None
     defaults['identifier'] = 'Test123'
     defaults['workdir'] = None
+    defaults['output_dir'] = r'C:/PyPPSPP/'
+    defaults['result_id'] = 'Develop1'
 
     main(objectview(defaults))
 

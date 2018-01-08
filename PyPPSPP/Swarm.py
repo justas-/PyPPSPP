@@ -47,7 +47,7 @@ from ContentGenerator import ContentGenerator
 class Swarm(object):
     """A class used to represent a swarm in PPSPP"""
 
-    def __init__(self, socket, args):
+    def __init__(self, socket, args, udp_transport=None):
         """Initialize the object representing a swarm"""
         self._args = args
 
@@ -64,6 +64,8 @@ class Swarm(object):
             self.dlfwd = args.dlfwd
         else:
             self.dlfwd = 0
+
+        self.udp_transport = udp_transport
 
         self._uuid = uuid.uuid4()
 

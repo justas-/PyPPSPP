@@ -176,7 +176,7 @@ class PeerProtocolTCP(asyncio.Protocol):
                     return
             except Exception as exc:
                 logging.error('Exception checking for goodbye message. Exception: {}; Data: {}; Peer: {}:{}'
-                          .format(exp, data, self._ip, self._port))
+                          .format(exc, data, self._ip, self._port))
                 self.force_close_connection()
                 return 
             

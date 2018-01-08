@@ -34,6 +34,7 @@ from Hive import Hive
 
 # Configure logger
 
+IP_PORT = 6778
 
 def main(args):
     logging.info("""PPSPP Parameters:
@@ -122,29 +123,27 @@ def main(args):
     # TODO - check if connected to the Tracekr!
     tracker.set_tracker_protocol(traceker_server)
 
-    ip_port = 6778
-
     if args.tcp:
         # Create a TCP server
         # TODO: This is not great
-        listen = loop.create_server(lambda: PeerProtocolTCP(hive), host = "0.0.0.0", port=ip_port)
+        listen = loop.create_server(lambda: PeerProtocolTCP(hive), host = "0.0.0.0", port=IP_PORT)
         protocol = loop.run_until_complete(listen)
 
     if args.ledbat:
         # Create listening UDP socket for data
-        listen = loop.create_datagram_endpoint(lambda: PeerProtocolLedbatUDP(hive), local_addr=("0.0.0.0", ip_port))
+        listen = loop.create_datagram_endpoint(lambda: PeerProtocolLedbatUDP(hive), local_addr=("0.0.0.0", IP_PORT))
         ledbat_transport, ledbat_protocol = loop.run_until_complete(listen)
         logging.info('LEDBAT UDP socket created')
+
+    if args.ledbat:
+        hive.set_ledbat_proto(ledbat_protocol)
 
     # At this point we have a connection to the tracker and have a listening (TCP/UDP) socket
     if args.tcp:
         sw = hive.create_swarm(protocol, args)
 
-    if args.ledbat:
-        hive.set_ledbat_proto(ledbat_protocol)
-
     # Register with the tracker
-    tracker.register_in_tracker(args.swarmid, ip_port)
+    tracker.register_in_tracker(args.swarmid, IP_PORT)
     tracker.get_peers(args.swarmid)
 
     # Schedule wakeups to catch Ctrl+C in Win32

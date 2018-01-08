@@ -67,7 +67,7 @@ class Hive(object):
             logging.warn("Trying to add same swarm twice! Swarm: {}".format(swarm_id))
             return None
 
-        self._swarms[swarm_id] = Swarm(socket, args)
+        self._swarms[swarm_id] = Swarm(socket, args, self._lebat_proto)
 
         return self._swarms[swarm_id]
 
