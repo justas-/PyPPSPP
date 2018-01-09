@@ -128,7 +128,7 @@ class SimpleLedbat(baseledbat.BaseLedbat):
             else:
                 # We are not in congestion, check if there is congestion
                 if ((self._last_ack_received + self._cto < time_now) and    # The actual congestion check
-                    (self._last_send_time + (2 * self._rtt) > time_now)):   # Allow some time after we leave CTO for ACKs to arrive
+                    (self._last_send_time + (2 * self.rtt) > time_now)):   # Allow some time after we leave CTO for ACKs to arrive
                     
                     # Congestion
 
