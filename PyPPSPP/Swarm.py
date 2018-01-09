@@ -118,6 +118,13 @@ class Swarm(object):
 
         self._all_data_rx = 0
         self._all_data_tx = 0
+
+        self._all_udp_data_tx = 0
+        self._all_udp_data_rx = 0
+
+        self._int_udp_data_tx = 0
+        self._int_udp_data_rx = 0
+
         self._start_time = time.time()
         self._int_time = 0
         self._int_chunks = 0
@@ -126,7 +133,7 @@ class Swarm(object):
         self._discarded_rx = 0
 
         self._periodic_stats_handle = None
-        self._periodic_stats_freq = 3
+        self._periodic_stats_freq = 1
 
         self._member_stats = {}
 
@@ -229,7 +236,8 @@ class Swarm(object):
 
     def send_udp_data(self, ip_address, port, data):
         """Send data via Hive's UDP socket"""
-        self._hive.send_udp_data(ip_address, port, data)
+        self.udp_transport.send_data(data, (ip_address, port))
+        self._all_udp_data_tx += len(data)
 
     def SendData(self, ip_address, port, data):
         """Send data over a socket used by this swarm"""
@@ -621,10 +629,16 @@ class Swarm(object):
         data_tx_in_int = self._all_data_tx - self._int_data_tx
         data_rx_in_int = self._all_data_rx - self._int_data_rx
 
+        data_tx_udp_in_int = self._all_udp_data_tx - self._int_udp_data_tx
+        data_rx_udp_in_int = self._all_udp_data_rx - self._int_udp_data_rx
+
         # Set the values
         self._int_chunks = self._data_chunks_rx
         self._int_data_rx = self._all_data_rx
         self._int_data_tx = self._all_data_tx
+        self._int_udp_data_rx = self._all_udp_data_rx
+        self._int_udp_data_tx = self._all_udp_data_tx
+
         self._int_time = time.time()
 
         # Number of members in the swarm
@@ -632,15 +646,20 @@ class Swarm(object):
         valid_members = sum(m.is_init for m in self._members)
 
         # Print results
-        logging.info("# Have/Missing {}/{}; Down ch/s: {}; Speed up/down: {}/{} Bps; Members Known/Valid: {}/{}"
-                     .format(
-                         num_have, 
-                         num_missing, 
-                         int(chunks_in_int/t_int),
-                         int(data_tx_in_int/t_int),
-                         int(data_rx_in_int/t_int),
-                         known_members,
-                         valid_members))
+        logging.info("# Have/Missing {}/{}; Down ch/s: {}; BW Tx/Rx: {}/{} Bps; BW (UDP) Tx/Rx: {}/{} Bps; Members Known/Valid: {}/{}"
+                     .format(num_have, num_missing, int(chunks_in_int/t_int), int(data_tx_in_int/t_int),
+                             int(data_rx_in_int/t_int), int(data_tx_udp_in_int/t_int), int(data_rx_udp_in_int/t_int),
+                             known_members, valid_members))
+
+        for member in self._members:
+            if not member.is_init:
+                continue
+            if not member.ledbat:
+                continue
+
+            logging.info("Member: %s; RemReq %s; LocReq %s; LEDBAT CWND: %s. QDLY: %.2f, RTT: %.2f",
+                         member, len(member.set_requested), len(member.set_i_requested),
+                         member.ledbat.cwnd, member.ledbat.queuing_delay, member.ledbat.rtt)
 
         self._periodic_stats_handle = asyncio.get_event_loop().call_later(
             self._periodic_stats_freq,

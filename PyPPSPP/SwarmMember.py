@@ -41,7 +41,9 @@ import pyledbat.ledbat
 import pyledbat.ledbat.simpleledbat
 import pyledbat.testledbat.inflight_track
 
-OOO_THRESH = 3
+from builtins import property
+
+OOO_THRESH = 10
 IP_PORT = 6778
 SZ_DATA = 1024
 
@@ -124,6 +126,7 @@ class SwarmMember(object):
         self._in_flight = pyledbat.testledbat.inflight_track.InflightTrack()
         self._chunk_sending_alg = LEDBATSendRequestedChunks(self._swarm, self)
         self._sending_handle = None
+        self._time_last_ack_rx = None
 
         #if self._swarm.live:
         #    self._chunk_sending_alg = VODSendRequestedChunks(
@@ -231,7 +234,7 @@ class SwarmMember(object):
     def send_and_account_udp(self, binary_data):
         """Send and account using UDP"""
 
-        self._swarm.udp_transport.send_data(binary_data, (self.ip_address, 6778))
+        self._swarm.send_udp_data(self.ip_address, 6778, binary_data)
         self._total_data_tx += len(binary_data)
 
     def SendAndAccount(self, binary_data):
@@ -478,8 +481,8 @@ class SwarmMember(object):
         delay = int((time.time() * 1000000) - ts)
         msg_ack.one_way_delay_sample = delay
 
-        if self._logger.isEnabledFor(logging.DEBUG):
-            logging.debug("Sent ACK for {} to {}".format(msg_ack.start_chunk, msg_ack.end_chunk))
+        #if self._logger.isEnabledFor(logging.DEBUG):
+        #    logging.debug("Sent ACK for {} to {}".format(msg_ack.start_chunk, msg_ack.end_chunk))
 
         self._outbox.append(msg_ack)
 
@@ -545,15 +548,19 @@ class SwarmMember(object):
 
     def HandleAck(self, msg_ack):
         """Handle incomming ACK message"""
+
+        #logging.info('CWND: %s Flight: %s, QDly: %s, RTT: %s',
+        #             self._ledbat.cwnd, self._ledbat.flightsize, self._ledbat.queuing_delay, self._ledbat.rtt)
         
         rx_time = time.time()
+        self._time_last_ack_rx = rx_time
 
         if not self._ledbat:
             logging.warn("Got ACK from TCP based peer!")
             return
 
-        if self._logger.isEnabledFor(logging.DEBUG):
-                logging.debug("FROM > {} > ACK: {} to {}".format(self._peer_num, msg_ack.start_chunk, msg_ack.end_chunk))
+        #if self._logger.isEnabledFor(logging.DEBUG):
+        #        logging.debug("FROM > {} > ACK: {} to {}".format(self._peer_num, msg_ack.start_chunk, msg_ack.end_chunk))
 
         for x in range(msg_ack.start_chunk, msg_ack.end_chunk + 1):
             self.set_requested.discard(x)
@@ -581,7 +588,7 @@ class SwarmMember(object):
                 (time_stamp, resent, _) = self._in_flight.pop()
                 if resent:
                     pass
-                    logging.info('Cleared resent from head: %s', acked_seq_num)
+                    #logging.info('Cleared resent from head: %s', acked_seq_num)
                 else:
                     # Reset if clearing non-resends from head of line
                     #logging.info('Setting ooo to 0')
@@ -613,20 +620,29 @@ class SwarmMember(object):
         # Feed new data to LEDBAT
         self._ledbat.update_measurements(((ack_to - ack_from + 1) * SZ_DATA) + 24, delays, rtts)
 
+    def resend_all_inflight(self):
+        """
+        Resend all packets in flight
+        """
+        resendable = self._in_flight.get_in_flight()
+        self._resend_indicated(resendable)
+        self._ledbat.data_loss()
+        self._cnt_ooo = 0
+
     def _resend_indicated(self, resendable):
         """Resend indicated chunks from in_flight tracker"""
         for seq_num in resendable:
 
-            data = self._swarm.GetChunkData(chunk_id)
+            data = self._swarm.GetChunkData(seq_num)
         
-            md = MsgData.MsgData(self._member.chunk_size, self._member.chunk_addressing_method)
+            md = MsgData.MsgData(self.chunk_size, self.chunk_addressing_method)
             md.start_chunk = seq_num
             md.end_chunk = seq_num
             md.data = data
             md.timestamp = int((time.time() * 1000000))
 
             mdata_bin = bytearray()
-            mdata_bin[0:4] = struct.pack('>I', self._member.remote_channel)
+            mdata_bin[0:4] = struct.pack('>I', self.remote_channel)
             mdata_bin[4:] = md.BuildBinaryMessage()
 
             self.send_and_account_udp(mdata_bin)

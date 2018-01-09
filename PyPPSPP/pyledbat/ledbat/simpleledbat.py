@@ -53,7 +53,10 @@ class SimpleLedbat(baseledbat.BaseLedbat):
     @property
     def rtt(self):
         """Get Round-trip time estimate"""
-        return self._rtt
+        if self._rtt is None:
+            return 0
+        else:
+            return self._rtt
 
     @property
     def queuing_delay(self):

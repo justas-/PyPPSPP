@@ -109,7 +109,7 @@ class BaseLedbat(object):
 
         # Prevent calling too often
         if self._last_data_loss != 0:
-            if t_now - self._last_data_loss < self._rtt:
+            if t_now - self._last_data_loss < self.rtt:
                 # At most once per RTT
                 return
 

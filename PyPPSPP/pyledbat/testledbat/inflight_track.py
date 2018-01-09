@@ -65,6 +65,13 @@ class InflightTrack(object):
 
         return resendable
 
+    def get_in_flight(self):
+        """
+        Get sequence number of all packets in-flight
+        """
+        in_flight = list(self._deq)
+        return in_flight
+
     def pop_given(self, seq, return_item=True):
         """Remove diven SEQ number"""
         is_ooo = False

@@ -48,11 +48,14 @@ class PeerProtocolLedbatUDP(asyncio.DatagramProtocol):
         member = self._hive.get_member_by_channel(my_channel)
 
         if member != None:
+            
             if len(data) == 4:
                 # This is keepalive
                 member.GotKeepalive()
             else:
                 member.ParseData(data)
+
+            member._swarm._all_udp_data_rx += len(data)
         else:
             logging.warning("LEDBAT Socket data received but member not found. Channel: %s; Received from: %s; Datalen: %s",
                             my_channel, addr, len(data))

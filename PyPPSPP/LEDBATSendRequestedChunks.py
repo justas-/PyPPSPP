@@ -34,6 +34,9 @@ class LEDBATSendRequestedChunks(AbstractSendRequestedChunks):
 
     def __init__(self, swarm, member):
         """Init sender"""
+        self._num_outstanding = 0       # Number of chunks outstanding
+        self._num_checks = 0            # Times the above number did not change
+
         return super().__init__(swarm, member)
 
     def _build_and_send(self, chunk_id):
@@ -56,6 +59,34 @@ class LEDBATSendRequestedChunks(AbstractSendRequestedChunks):
     def SendAndSchedule(self):
         """ """
 
+        t_now = time.time()
+
+        # Skip all this if nothing outstanding
+        num_outstanding = len(self._member.set_requested)
+        if num_outstanding > 0:
+
+            # Are we stuck outstanding on the same number of chunks?
+            if num_outstanding == self._num_outstanding:
+                # Same number -> increase the counter
+                self._num_checks += 1
+            else:
+                # Number of outstanding changed -> reset the counter
+                self._num_outstanding = num_outstanding
+                self._num_checks = 0
+
+            # Do action after 10 checks stuck on the same number of outstanding chunks
+            if self._num_checks > 10:
+                # No ACKs received at all - first packets stuck - resend them
+                if self._member._time_last_ack_rx is None:
+                    logging.info("Resengin all in-flight packets (1)")
+                    self._member.resend_all_inflight()
+                    self._num_checks = 0
+                # No acks for more than 10 estimated RTTs
+                elif t_now - self._member._time_last_ack_rx > self._member.ledbat.rtt * 10:
+                    logging.info("Resengin all in-flight packets (2)")
+                    self._member.resend_all_inflight()
+                    self._num_checks = 0
+
         # Chunks I have and member is interested
         set_to_send = (self._swarm.set_have & self._member.set_requested) - self._member.set_sent
         any_to_send = any(set_to_send)
@@ -72,14 +103,14 @@ class LEDBATSendRequestedChunks(AbstractSendRequestedChunks):
         if not can_send:
             # Delay 0.1 sec
             self._member._sending_handle = asyncio.get_event_loop().call_later(
-                0.1, self._member.SendRequestedChunks)
+                0.01, self._member.SendRequestedChunks)
             return
 
         # We can send - Send and rechedule immediate resending
         chunk_id = min(set_to_send)
         #print("Sending Chunk {}".format(chunk_id))
         self._build_and_send(chunk_id)
-        self._member.in_flight.add(chunk_id, time.time(), None)
+        self._member.in_flight.add(chunk_id, t_now, None)
         self._member._sending_handle = asyncio.get_event_loop().call_soon(
                 self._member.SendRequestedChunks)
 
