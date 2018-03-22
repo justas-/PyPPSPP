@@ -191,7 +191,7 @@ if __name__ == "__main__":
         idstr = 'runlog_'+result_id+'.log'
         logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(asctime)s %(message)s', filename=output_dir+idstr)
     else:
-        logging.basicConfig(level=logging.DEBUG, format='[%(levelname)s] %(asctime)s %(message)s')
+        logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(asctime)s %(message)s')
 
     logging.info ("PyPPSPP starting")
 
@@ -211,6 +211,7 @@ if __name__ == "__main__":
     defaults['buffsz'] = 500
     defaults['dlfwd'] = 0
     defaults['vod'] = False
+    defaults['doneclose'] = False
 
     # Parse command line parameters
     parser = argparse.ArgumentParser(description="Python implementation of PPSPP protocol")
@@ -239,6 +240,8 @@ if __name__ == "__main__":
     parser.add_argument('--dlfwd', help='Number of chunks to request after last played', nargs='?', type=int, default=defaults['dlfwd'])
     # Indicate that this is VOD
     parser.add_argument('--vod', help='This is Video-On-Demand CLIENT', action='store_true', default=defaults['vod'])
+    parser.add_argument('--doneclose', help='Close client after streaming is done', action='store_true', default=defaults['doneclose'])
+    parser.add_argument('--fast', help='Increase LEDBAT parameters', action='store_true', default=False)
 
     # Start the program
     args = parser.parse_args()

@@ -34,7 +34,10 @@ class InflightTrack(object):
 
     def peek(self):
         """Get the seq number of the right-most item"""
-        return self._deq[-1]
+        try:
+            return self._deq[-1]
+        except IndexError:
+            return None
 
     def pop(self, get_item=True):
         """Remove the rightmost item"""
@@ -89,7 +92,11 @@ class InflightTrack(object):
                 is_ooo = True
                 break
 
-        self._deq.remove(seq)
+        try:
+            self._deq.remove(seq)
+        except ValueError:
+            return None
+
         (time_stamp, resent, data) = self._store[seq]
         del self._store[seq]
 

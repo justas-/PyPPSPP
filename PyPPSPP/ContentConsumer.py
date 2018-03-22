@@ -48,6 +48,8 @@ class ContentConsumer(object):
         self._last_showed = None        # Last chunk ID that was used to recreate showed frame
         self._last_showed_lock = threading.Lock()   # Lock to access the last showed id
         self._content_len = None
+        self._content_done = False
+        self._done_close = args.doneclose
 
         self._frames_consumed = 0       # Number of A/V frames shown
         self._frames_missed = 0         # Number of frames that was not there when needed
@@ -90,6 +92,12 @@ class ContentConsumer(object):
             
             # When stopped - indicate stop time
             self._stop_time = time.time()
+
+            if self._content_done and self._done_close:
+                logging.info('Closing Swarn due to content done & done close')
+                self.print_statistics()
+                self._loop.call_soon(self._swarm.close_swarm)
+                
             return
 
         except KeyboardInterrupt:
@@ -250,6 +258,7 @@ class ContentConsumer(object):
 
             if self._content_len is not None and self._content_len == self._frames_consumed:
                 logging.info('End of content reached!')
+                self._content_done = True
                 self._stop_thread = True
                 
 

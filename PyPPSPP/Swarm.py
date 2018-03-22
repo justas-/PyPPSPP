@@ -47,7 +47,7 @@ from ContentGenerator import ContentGenerator
 class Swarm(object):
     """A class used to represent a swarm in PPSPP"""
 
-    def __init__(self, socket, args, udp_transport=None):
+    def __init__(self, socket, args, udp_transport=None, **kwargs):
         """Initialize the object representing a swarm"""
         self._args = args
 
@@ -68,6 +68,9 @@ class Swarm(object):
         self.udp_transport = udp_transport
 
         self._uuid = uuid.uuid4()
+
+        self._is_closed = False
+        self.fast = args.fast
 
         # setup for ALTO
         self._use_alto = False
@@ -136,6 +139,8 @@ class Swarm(object):
         self._periodic_stats_freq = 1
 
         self._member_stats = {}
+
+        self._doneclose = args.doneclose
 
         if self.vod:
             # Setup client for VOD role
@@ -711,6 +716,9 @@ class Swarm(object):
 
     def close_swarm(self):
         """Close the swarm and send disconnect to all members"""
+        if self._is_closed:
+            return
+
         logging.info("Request to close swarm nicely!")
 
         # Cancel events
@@ -764,3 +772,6 @@ class Swarm(object):
 
         # Close chunk storage
         self._chunk_storage.CloseStorage()
+
+        self._is_closed= True
+

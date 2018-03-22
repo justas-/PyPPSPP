@@ -122,12 +122,20 @@ class SwarmMember(object):
         # Chunk sending
         # TODO: LEDBAT CHECK ALL THIS!!!
         self._chunk_sending_alg =  None
-        self._ledbat = pyledbat.ledbat.simpleledbat.SimpleLedbat()
+        if self._swarm.fast:
+            self._ledbat = pyledbat.ledbat.simpleledbat.SimpleLedbat(
+                set_loss_cwnd_frac=0.75,
+                set_target=100
+            )
+        else:
+            self._ledbat = pyledbat.ledbat.simpleledbat.SimpleLedbat()
+
         self._in_flight = pyledbat.testledbat.inflight_track.InflightTrack()
         self._chunk_sending_alg = LEDBATSendRequestedChunks(self._swarm, self)
         self._sending_handle = None
         self._time_last_ack_rx = None
-
+        self._cnt_ooo = 0
+        
         #if self._swarm.live:
         #    self._chunk_sending_alg = VODSendRequestedChunks(
         #        self._swarm, self)
@@ -575,10 +583,11 @@ class SwarmMember(object):
         ack_to = msg_ack.end_chunk
 
         # Do not process duplicates
-        if ack_to < self._in_flight.peek():
+        head = self._in_flight.peek()
+        if head is None or ack_to < head:
             #self.stats['DupPkt'] += 1
             logging.info('Duplciate ACK packet. ACKed: %s:%s; Head: %s',
-                    ack_from, ack_to, self._in_flight.peek())
+                    ack_from, ack_to, head)
             return
 
         # Check for out-of-order and calculate rtts
@@ -594,7 +603,11 @@ class SwarmMember(object):
                     #logging.info('Setting ooo to 0')
                     self._cnt_ooo = 0
             else:
-                (time_stamp, resent, _, is_ooo) = self._in_flight.pop_given(acked_seq_num)
+                # In case Seq num is not here
+                data = self._in_flight.pop_given(acked_seq_num)
+                if not data:
+                    continue
+                (time_stamp, resent, _, is_ooo) = data
                 if is_ooo:
                     self._cnt_ooo += 1
                     #self.stats['OooPkt'] += 1
@@ -618,7 +631,7 @@ class SwarmMember(object):
         delays = [msg_ack.one_way_delay_sample / 1000]
 
         # Feed new data to LEDBAT
-        self._ledbat.update_measurements(((ack_to - ack_from + 1) * SZ_DATA) + 24, delays, rtts)
+        self._ledbat.update_measurements(((ack_to - ack_from + 1) * SZ_DATA) + 24, delays, rtts, rx_time)
 
     def resend_all_inflight(self):
         """

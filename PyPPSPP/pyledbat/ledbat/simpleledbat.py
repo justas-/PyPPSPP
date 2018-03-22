@@ -55,8 +55,8 @@ class SimpleLedbat(baseledbat.BaseLedbat):
         """Get Round-trip time estimate"""
         if self._rtt is None:
             return 0
-        else:
-            return self._rtt
+        
+        return self._rtt
 
     @property
     def queuing_delay(self):
@@ -77,6 +77,11 @@ class SimpleLedbat(baseledbat.BaseLedbat):
     def cto(self):
         """Get Congestion timeout value"""
         return self._cto
+
+    @property
+    def in_cto(self):
+        """Get CTO status"""
+        return self._in_cto
 
     def __init__(self, **kwargs):
         """Init the required variables"""
@@ -107,31 +112,27 @@ class SimpleLedbat(baseledbat.BaseLedbat):
         if self._last_ack_received is not None:
             # At least one ACK was received
 
+            # Check if last ACK was RXd within CTO:
+            if self._last_ack_received + self._cto > time_now:
+                self._in_cto = False
+
             # Check if we are under heavy congestion
             if self._in_cto:
                 # We are in CTO at the moment
 
-                if self._last_ack_received > time_now - self._cto:
-                    # We RXd some ACKs within CTO -> no longer in CTO, check CWND
-                    self._in_cto = False
-
+                if self._last_cto_fail_time + self._cto > time_now:
+                    # We are still in CTO, do not send, do not update last CTO fail time
+                    return (False, FailReason.CTO)
                 else:
-                    # No ACKs in CTO, Further checking
-
-                    if self._last_cto_fail_time + self._cto > time_now:
-                        # We are still in CTO, do not send
-                        return (False, FailReason.CTO)
-                    else:
-                        # We are out of congestion, try sending if CWND allows
-                        self._in_cto = False
+                    # We are out of congestion, try sending if CWND allows
+                    self._in_cto = False
             
             else:
                 # We are not in congestion, check if there is congestion
-                if ((self._last_ack_received + self._cto < time_now) and    # The actual congestion check
-                    (self._last_send_time + (2 * self.rtt) > time_now)):   # Allow some time after we leave CTO for ACKs to arrive
+                if (self._last_ack_received + self._cto < time_now):    # The actual congestion check
+                    #(self._last_send_time + (2 * self._rtt) < time_now)):   # Give 2RTTs after sending to receive ACKs
                     
                     # Congestion
-
                     if (self._last_cto_fail_time is None or
                         self._last_cto_fail_time + self._cto < time_now):
                         # We never failed CTO check before
@@ -159,11 +160,13 @@ class SimpleLedbat(baseledbat.BaseLedbat):
             # Will have to wait
             return (False, FailReason.CWND)
 
-    def update_measurements(self, data_acked, ow_times, rt_times):
+    def update_measurements(self, data_acked, ow_times, rt_times, rx_time):
         """Update LEDBAT calculations. data_acked - number of bytes acked,
         if None, will be num of ow_times * MSS, ow_limes - array of one-way
         delay measurements (oldest to newest), rt_time - round-trip time
-        measurements, oldest to newest"""
+        measurements, oldest to newest, rx_time - time when ACK was received"""
+
+        self._last_ack_received = rx_time
 
         if data_acked is None:
             num_data = len(ow_times) * self.MSS
